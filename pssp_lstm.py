@@ -2,7 +2,7 @@
 # driver and command line
 import argparse as ap
 from pathlib import Path
-#from train import train
+from train import train
 from hparams import HPARAMS
 
 def main():
@@ -32,14 +32,12 @@ def main():
         # run training
 
         logpath = Path(args.logdir)
+        HPARAMS.logdir = str(logpath.absolute())
         HPARAMS.train_file = str(Path(args.datadir, "cpdb_train.tfrecords").absolute())
         HPARAMS.valid_file = str(Path(args.datadir, "cpdb_valid.tfrecords").absolute())
         HPARAMS.test_file = str(Path(args.datadir, "cpdb_513_test.tfrecords").absolute())
 
-        print(HPARAMS)
-        quit()
-
-#        train(HPARAMS)
+        train(HPARAMS)
 
 if __name__ == "__main__":
     main()
