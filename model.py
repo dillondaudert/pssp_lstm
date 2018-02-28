@@ -53,6 +53,7 @@ class BDRNNModel(object):
         elif self.mode == tf.contrib.learn.ModeKeys.EVAL:
             self.eval_loss = res[1]
             self.accuracy = res[2][0]
+            self.confusion = res[2][1]
             self.update_metrics = res[3]
 
         params = tf.trainable_variables()
@@ -227,6 +228,7 @@ class BDRNNModel(object):
         assert self.mode == tf.contrib.learn.ModeKeys.EVAL
         return sess.run([self.eval_loss,
                          self.accuracy,
+                         self.confusion,
                          self.eval_summary,
                          self.update_metrics])
 

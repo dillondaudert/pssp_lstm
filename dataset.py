@@ -1,4 +1,4 @@
-"""Utilities for input pipelines."""
+"""Create a tf.data.Dataset input pipeline."""
 
 from pathlib import Path
 import tensorflow as tf, numpy as np

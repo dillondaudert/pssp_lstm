@@ -1,3 +1,4 @@
+"""Training loop."""
 # basic example of training a network end-to-end
 from time import process_time
 from pathlib import Path
@@ -65,7 +66,7 @@ def train(hparams):
                 eval_tuple.session.run([eval_tuple.iterator.initializer, local_initializer])
                 while True:
                     try:
-                        eval_loss, eval_acc, eval_summary, _ = eval_tuple.model.eval(eval_tuple.session)
+                        eval_loss, eval_acc, _, eval_summary, _ = eval_tuple.model.eval(eval_tuple.session)
                         # summary_writer.add_summary(summary, global_step)
                     except tf.errors.OutOfRangeError:
                         print("Step: %d, Eval Loss: %f, Eval Accuracy: %f" % (global_step,

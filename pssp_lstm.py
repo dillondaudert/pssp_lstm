@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-# driver and command line
+"""Driver for training and running models."""
 import argparse as ap
 from pathlib import Path
 from train import train
+from evaluate import evaluate
 from hparams import HPARAMS
 
 def main():
@@ -26,6 +27,16 @@ def main():
 
     tr_parser.set_defaults(entry="train")
 
+    ev_parser = subparsers.add_parser("evaluate", help="Evaluate a trained model")
+
+    ev_parser.add_argument("datadir", type=str,
+                           help="the directory where the cpdb_513.tfrecords file is located.")
+    ev_parser.add_argument("ckpt", type=str,
+                           help="a checkpoint file for a trained model. This will\
+                                 look something like this:\
+                                 /path/ckpt/ckpt-4100")
+    ev_parser.set_defaults(entry="evaluate")
+
     args = parser.parse_args()
 
     if args.entry == "train":
@@ -35,9 +46,17 @@ def main():
         HPARAMS.logdir = str(logpath.absolute())
         HPARAMS.train_file = str(Path(args.datadir, "cpdb_train.tfrecords").absolute())
         HPARAMS.valid_file = str(Path(args.datadir, "cpdb_valid.tfrecords").absolute())
-        HPARAMS.test_file = str(Path(args.datadir, "cpdb_513_test.tfrecords").absolute())
 
         train(HPARAMS)
+
+    elif args.entry == "evaluate":
+        # evaluate a trained network on the test data
+        HPARAMS.valid_file = str(Path(args.datadir, "cpdb_513.tfrecords").absolute())
+        HPARAMS.model_ckpt = str(Path(args.ckpt).absolute())
+
+        evaluate(HPARAMS)
+
+
 
 if __name__ == "__main__":
     main()
