@@ -10,7 +10,7 @@ HPARAMS = tf.contrib.training.HParams(
     num_dense_units=200,
     dropout=0.5,
     batch_size=128,
-    num_epochs=100,
+    num_epochs=125,
     max_gradient_norm=0.5,
     num_keep_ckpts=4,
 )
