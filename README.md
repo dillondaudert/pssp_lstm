@@ -20,11 +20,6 @@ includes feed forward networks between the long short term memory cells, a path 
 - **evaluate.py**: Evaluate a model
 - **pssp_lstm.py**: Driver/command line tool
 
-## To Do
-The model as it is currently written is missing two elements of the model from the paper:
-1. Parameterize the initial state of the model (so it is learnable)
-2. Add fully-connected layers (with skip-connections) at the hidden-to-hidden LSTM cell connections
-
 # User Guide
 
 ## Requirements
@@ -51,7 +46,7 @@ Assuming the TF records datasets have been created, the quickest way to train a 
 ```
 ./pssp_lstm.py train /path/to/data/dir /path/to/log/dir
 ```
-This will train the model as described **above/in the paper** on the CullPDB dataset. By default, this will train for 125 epochs with a batch size of 128. During training, you should see regular status messages: 
+This will train the model as described on the CullPDB dataset. By default, this will train for 125 epochs with a batch size of 128. During training, you should see regular status messages: 
 ```
 ...
 Step: 75, Training Loss: 1.687496, Avg Step/Sec: 2.27
@@ -60,7 +55,7 @@ Step: 100, Eval Loss: 1.637190, Eval Accuracy: 0.331677
 ...
 ```
 
-
+Depending on your hardware, you may want to use different batch sizes. The model and training hyperparameters can be adjusted in the [hparams.py](./hparams.py) file.
 
 ## Visualizing Training
 
@@ -70,7 +65,9 @@ These can be visualized using [Tensorboard](https://github.com/tensorflow/tensor
 ```
 tensorboard --logdir logdir
 ```
-By default, this will start a web server on the local host. An example of the tensorboard dashboard:
+By default, this will start a web server on the local host. 
+
+**NOTE**: These summaries can use a lot of space, on the order of 5 - 10GB.
 
 ## Evaluating the Model
 
@@ -86,7 +83,7 @@ Here, the second argument is not a directory, but instead the path to a model ch
 # Resources
 
 
-- The dataset was created using proteins from the [Protein Databank](https://www.wwpdb.org/)
+- The dataset uses proteins from the [Protein Databank](https://www.wwpdb.org/)
 - Secondary structure labels are assigned according to the Dictionary of Protein Secondary Structure [(DSSP)](http://swift.cmbi.ru.nl/gv/dssp/) labels
 
 # Additional References
