@@ -41,6 +41,8 @@ def main():
 
     args = parser.parse_args()
 
+    HPARAMS.logging = args.logging
+
     if args.entry == "train":
         # run training
 
