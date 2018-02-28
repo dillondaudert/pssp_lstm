@@ -35,9 +35,9 @@ def create_dataset(hparams, mode):
     dataset = dataset.cache()
 
     if shuffle:
-        dataset = dataset.apply(tf.contrib.data.shuffle_and_repeat(buffer_size=batch_size*100, count=num_epochs))
-    else:
-        dataset = dataset.repeat(num_epochs)
+        dataset = dataset.shuffle(buffer_size=batch_size*100)
+
+    dataset = dataset.repeat(num_epochs)
 
     # parse the records
     dataset = dataset.map(lambda x:parser(x, hparams), num_parallel_calls=4)
