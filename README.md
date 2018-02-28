@@ -20,6 +20,11 @@ includes feed forward networks between the long short term memory cells, a path 
 - **evaluate.py**: Evaluate a model
 - **pssp_lstm.py**: Driver/command line tool
 
+## To Do
+The model as it is currently written is missing two elements of the model from the paper:
+1. Parameterize the initial state of the model (so it is learnable)
+2. Add fully-connected layers (with skip-connections) at the hidden-to-hidden LSTM cell connections
+
 # User Guide
 
 ## Requirements
@@ -27,7 +32,7 @@ includes feed forward networks between the long short term memory cells, a path 
 - Python 3
 - Numpy
 - Pandas
-- [TensorFlow](https://www.tensorflow.org/install/) $\ge$ v1.5
+- [TensorFlow](https://www.tensorflow.org/install/) >= v1.5
 
 
 ## Downloading and Preparing the Data
