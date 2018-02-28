@@ -41,10 +41,10 @@ def main():
 
     args = parser.parse_args()
 
-    HPARAMS.logging = args.logging
 
     if args.entry == "train":
         # run training
+        HPARAMS.logging = args.logging
 
         logpath = Path(args.logdir)
         HPARAMS.logdir = str(logpath.absolute())
