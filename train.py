@@ -21,10 +21,11 @@ def train(hparams):
         local_initializer = tf.local_variables_initializer()
 
     # Summary writers
-    summary_writer = tf.summary.FileWriter(hparams.logdir,
-                                           train_tuple.graph,
-                                           max_queue=25,
-                                           flush_secs=30)
+    if hparams.logging:
+        summary_writer = tf.summary.FileWriter(hparams.logdir,
+                                               train_tuple.graph,
+                                               max_queue=25,
+                                               flush_secs=30)
 
     train_tuple.session.run([initializer])
 
@@ -40,7 +41,7 @@ def train(hparams):
         step_time = []
         try:
             curr_time = process_time()
-            if profile_next_step:
+            if profile_next_step and hparams.logging:
                 # run profiling
                 _, train_loss, global_step, summary = train_tuple.model.train_with_profile(train_tuple.session, summary_writer)
                 profile_next_step = False
@@ -49,9 +50,9 @@ def train(hparams):
             step_time.append(process_time() - curr_time)
 
             # write train summaries
-            if global_step == 1:
+            if global_step == 1 and hparams.logging:
                 summary_writer.add_summary(summary, global_step)
-            if global_step % 15 == 0:
+            if global_step % 15 == 0 and hparams.logging:
                 summary_writer.add_summary(summary, global_step)
                 print("Step: %d, Training Loss: %f, Avg Step/Sec: %2.2f" % (global_step, train_loss, np.mean(step_time)))
 
@@ -67,12 +68,12 @@ def train(hparams):
                 while True:
                     try:
                         eval_loss, eval_acc, _, eval_summary, _ = eval_tuple.model.eval(eval_tuple.session)
-                        # summary_writer.add_summary(summary, global_step)
                     except tf.errors.OutOfRangeError:
                         print("Step: %d, Eval Loss: %f, Eval Accuracy: %f" % (global_step,
                                                                               eval_loss,
                                                                               eval_acc))
-                        summary_writer.add_summary(eval_summary, global_step)
+                        if hparams.logging:
+                            summary_writer.add_summary(eval_summary, global_step)
                         break
 
         except tf.errors.OutOfRangeError:

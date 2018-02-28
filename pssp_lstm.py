@@ -24,6 +24,8 @@ def main():
     tr_parser.add_argument("logdir", type=str,
                            help="the directory where model checkpoints and logs will\
                                  be saved")
+    tr_parser.add_argument("-l", "--logging", action="store_true",
+                           help="toggle to enable tf.summary logs (disabled by default)")
 
     tr_parser.set_defaults(entry="train")
 
