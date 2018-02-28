@@ -10,6 +10,12 @@ def train(hparams):
 
     ckptsdir = str(Path(hparams.logdir, "ckpts"))
 
+    try:
+        tf.gfile.MakeDirs(ckptsdir)
+    except:
+        print("Exception encountered when trying to make directory %s" % (ckptsdir))
+        quit()
+
     # build training and eval graphs
     train_tuple = create_model(hparams, tf.contrib.learn.ModeKeys.TRAIN)
     eval_tuple = create_model(hparams, tf.contrib.learn.ModeKeys.EVAL)
@@ -41,7 +47,8 @@ def train(hparams):
         step_time = []
         try:
             curr_time = process_time()
-            if profile_next_step and hparams.logging:
+            # NOTE: To enable profiling, remove the False at this statement
+            if False: # profile_next_step and hparams.logging:
                 # run profiling
                 _, train_loss, global_step, summary = train_tuple.model.train_with_profile(train_tuple.session, summary_writer)
                 profile_next_step = False
@@ -52,8 +59,9 @@ def train(hparams):
             # write train summaries
             if global_step == 1 and hparams.logging:
                 summary_writer.add_summary(summary, global_step)
-            if global_step % 15 == 0 and hparams.logging:
-                summary_writer.add_summary(summary, global_step)
+            if global_step % 15 == 0:
+                if hparams.logging:
+                    summary_writer.add_summary(summary, global_step)
                 print("Step: %d, Training Loss: %f, Avg Step/Sec: %2.2f" % (global_step, train_loss, np.mean(step_time)))
 
             if global_step % 100 == 0:

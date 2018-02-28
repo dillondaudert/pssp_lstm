@@ -67,8 +67,6 @@ tensorboard --logdir logdir
 ```
 By default, this will start a web server on the local host. 
 
-**NOTE**: These summaries can use a lot of space, on the order of 5 - 10GB.
-
 ## Evaluating the Model
 
 Once a model is trained, you can evaluate it vs. the CullPDB 513 test set with the following call:
