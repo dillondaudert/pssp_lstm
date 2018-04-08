@@ -3,6 +3,8 @@ This repo contains implementations of several recent papers using deep learning 
 
 ## [Protein Secondary Structure Prediction with Long Short Term Memory Networks. Sonderby, S., & Winther, O. 2015](https://arxiv.org/pdf/1412.7828.pdf)
 Folder: [pssp_lstm](./pssp_lstm/)
+
+**Status**: (Mostly) implemented.
 ### Abstract
 > Prediction of protein secondary structure from the amino acid sequence is a classical bioinformatics problem. Common methods use feed forward neural networks or SVM’s combined with a sliding window, as these models
 does not naturally handle sequential data. Recurrent neural networks are an generalization of the feed forward
@@ -13,16 +15,22 @@ includes feed forward networks between the long short term memory cells, a path 
 
 ## [Protein Secondary Structure Prediction Using Cascaded Convolutional and Recurrent Neural Networks. Li, Z., & Yu, Y. 2016](https://arxiv.org/abs/1604.07176)
 Folder: [ccnn_rnn](./ccnn_rnn/)
+
+**Status**: Not implemented.
 ### Abstract
 > Protein secondary structure prediction is an important problem in bioinformatics. Inspired by the recent successes of deep neural networks, in this paper, we propose an end-to-end deep network that predicts protein secondary structures from integrated local and global contextual features. Our deep architecture leverages convolutional neural networks with different kernel sizes to extract multiscale local contextual features. In addition, considering long-range dependencies existing in amino acid sequences, we set up a bidirectional neural network consisting of gated recurrent unit to capture global contextual features. Furthermore, multi-task learning is utilized to predict secondary structure labels and amino-acid solvent accessibility simultaneously. Our proposed deep network demonstrates its effectiveness by achieving state-of-the-art performance, i.e., 69.7% Q8 accuracy on the public benchmark CB513, 76.9% Q8 accuracy on CASP10 and 73.1% Q8 accuracy on CASP11. Our model and results are publicly available.
 
 ## [Capturing non-local interactions by long short-term memory bidirectional recurrent neural networks for improving prediction of protein secondary structure, backbone angles, contact numbers and solvent accessibility. Heffernan, R., Yang, Y., Paliwal, K., & Zhou, Y. *Bioinformatics* 2017](https://www.ncbi.nlm.nih.gov/pubmed/28430949)
 Folder: [lstm_bdrnn](./lstm_bdrnn/)
+
+**Status**: Not implemented.
 ### Abstract
 > The accuracy of predicting protein local and global structural properties such as secondary structure and solvent accessible surface area has been stagnant for many years because of the challenge of accounting for non-local interactions between amino acid residues that are close in three-dimensional structural space but far from each other in their sequence positions. All existing machine-learning techniques relied on a sliding window of 10-20 amino acid residues to capture some 'short to intermediate' non-local interactions. Here, we employed Long Short-Term Memory (LSTM) Bidirectional Recurrent Neural Networks (BRNNs) which are capable of capturing long range interactions without using a window.
 
 ## [Next-Step Conditioned Deep Convolutional Neural Networks Improve Protein Secondary Structure Prediction. Busia, A., & Jaitly, N. *ISMB* 2017](https://research.google.com/pubs/pub46131.html)
 Folder: [nsc_cnn](./nsc_cnn/)
+
+**Status**: Not implemented
 ### Abstract
 > Recently developed deep learning techniques have significantly improved the accuracy of various speech and image recognition systems. In this paper we show how to adapt some of these techniques to create a novel chained convolutional architecture with next-step conditioning for improving performance on protein sequence prediction problems. We explore its value by demonstrating its ability to improve performance on eight-class secondary structure prediction. We first establish a state-of-the-art baseline by adapting recent advances in convolutional neural networks which were developed for vision tasks. This model achieves 70.0% per amino acid accuracy on the CB513 benchmark dataset without use of standard performance-boosting techniques such as ensembling or multitask learning. We then improve upon this state-of-the-art result using a novel chained prediction approach which frames the secondary structure prediction as a next-step prediction problem. This sequential model achieves 70.3% Q8 accuracy on CB513 with a single model; an ensemble of these models produces 71.4% Q8 accuracy on the same test set, improving upon the previous overall state of the art for the eight-class secondary structure problem
 
