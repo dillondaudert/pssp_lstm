@@ -171,12 +171,14 @@ class BDRNNModel(object):
                                                                   name="crossent")
 
             # divide loss by batch_size * mean(seq_len)
-            loss = (tf.reduce_sum(crossent*mask)/(hparams.batch_size*tf.reduce_mean(tf.cast(seq_len,
-                                                                                            tf.float32))))
+            loss = tf.reduce_sum(crossent*mask)/tf.cast(hparams.batch_size, tf.float32)
 
             metrics = []
             update_ops = []
             if self.mode == tf.contrib.learn.ModeKeys.EVAL:
+                # mean eval loss
+                loss, loss_update = tf.metrics.mean(values=loss)
+
                 predictions = tf.argmax(input=logits, axis=-1)
                 tgt_labels = tf.argmax(input=tgt_outputs, axis=-1)
                 acc, acc_update = tf.metrics.accuracy(predictions=predictions,
@@ -192,7 +194,7 @@ class BDRNNModel(object):
                                                            weights=mask_flat)
                 tf.add_to_collection("eval", cm_summary(cm, hparams.num_labels))
                 metrics = [acc, cm]
-                update_ops = [acc_update, cm_update]
+                update_ops = [loss_update, acc_update, cm_update]
 
             return logits, loss, metrics, update_ops
 
