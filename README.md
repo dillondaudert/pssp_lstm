@@ -39,8 +39,7 @@ Folder: [nsc_cnn](./nsc_cnn/)
 ## Requirements
 
 - Python 3
-- Numpy
-- [TensorFlow](https://www.tensorflow.org/install/) >= v1.5
+- [TensorFlow](https://www.tensorflow.org/install/) >= v1.7
 
 
 ## Downloading and Preparing the Data
