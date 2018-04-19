@@ -22,14 +22,6 @@ includes feed forward networks between the long short term memory cells, a path 
 
 # User Guide
 
-## Requirements
-
-- Python 3
-- Numpy
-- Pandas
-- [TensorFlow](https://www.tensorflow.org/install/) >= v1.5
-
-
 ## Downloading and Preparing the Data
 
 The dataset used in this paper can be downloaded [here](https://www.princeton.edu/~jzthree/datasets/ICML2014/). The input pipeline uses the TensorFlow Dataset API, so the data files need to be converted into TFRecords. Assuming you've downloaded the .npy.gz files to the directory *datadir*, you can create the .tfrecords files by invoking:
