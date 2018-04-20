@@ -26,7 +26,6 @@ includes feed forward networks between the long short term memory cells, a path 
 
 - Python 3
 - Numpy
-- Pandas
 - [TensorFlow](https://www.tensorflow.org/install/) >= v1.5
 
 
