@@ -2,9 +2,9 @@
 """Driver for training and running models."""
 import argparse as ap
 from pathlib import Path
-from train import train
-from evaluate import evaluate
-from hparams import HPARAMS
+from .train import train
+from .evaluate import evaluate
+from .hparams import HPARAMS
 
 def main():
 

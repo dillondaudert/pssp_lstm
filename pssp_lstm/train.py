@@ -3,7 +3,7 @@
 from time import process_time
 from pathlib import Path
 import tensorflow as tf, numpy as np
-from model import create_model
+from .model import create_model
 
 def train(hparams):
     """Build and train the model as specified in hparams"""

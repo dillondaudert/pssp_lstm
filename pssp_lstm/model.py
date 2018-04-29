@@ -1,9 +1,9 @@
 """Bidirectional LSTM RNN for protein secondary structure prediction"""
 import tensorflow as tf
-from custom_tensorflow_rnn.stlstm import STLSTMCell
+from custom_rnn.stlstm import STLSTMCell
 from collections import namedtuple
-from dataset import create_dataset
-from metrics import streaming_confusion_matrix, cm_summary
+from .dataset import create_dataset
+from .metrics import streaming_confusion_matrix, cm_summary
 
 ModelTuple = namedtuple('ModelTuple', ['graph', 'iterator', 'model', 'session'])
 
