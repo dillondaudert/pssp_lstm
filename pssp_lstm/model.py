@@ -63,7 +63,8 @@ class BDRNNModel(object):
         if self.mode == tf.contrib.learn.ModeKeys.TRAIN:
 
             opt = tf.train.AdadeltaOptimizer(learning_rate=1.0,
-                                             epsilon=10e-06)
+                                             rho=0.95,
+                                             epsilon=1e-06)
 
             # gradients
             gradients = tf.gradients(self.train_loss,
@@ -141,6 +142,7 @@ class BDRNNModel(object):
             # dense output layers
             dense1 = tf.layers.dense(inputs=combined_outputs,
                                      units=hparams.num_dense_units,
+                                     kernel_initializer=tf.glorot_uniform_initializer(),
                                      activation=tf.nn.relu,
                                      use_bias=True)
             drop1 = tf.layers.dropout(inputs=dense1,
@@ -148,6 +150,7 @@ class BDRNNModel(object):
                                       training=self.mode==tf.contrib.learn.ModeKeys.TRAIN)
             dense2 = tf.layers.dense(inputs=drop1,
                                      units=hparams.num_dense_units,
+                                     kernel_initializer=tf.glorot_uniform_initializer(),
                                      activation=tf.nn.relu,
                                      use_bias=True)
             drop2 = tf.layers.dropout(inputs=dense2,
@@ -270,6 +273,7 @@ def _create_rnn_cell(num_units, num_layers, mode):
         single_cell = STLSTMCell(name="stlstm",
                                  num_units=num_units,
                                  st_activation=tf.nn.relu,
+                                 st_kernel_initializer=tf.glorot_uniform_initializer(),
                                  st_num_layers=2,
                                  st_residual=True)
         cell_list.append(single_cell)
