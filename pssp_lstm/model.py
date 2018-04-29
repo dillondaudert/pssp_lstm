@@ -268,7 +268,10 @@ def _create_rnn_cell(num_units, num_layers, mode):
     cell_list = []
     for i in range(num_layers):
         single_cell = STLSTMCell(name="stlstm",
-                                 num_units=num_units)
+                                 num_units=num_units,
+                                 st_activation=tf.nn.relu,
+                                 st_num_layers=2,
+                                 st_residual=True)
         cell_list.append(single_cell)
 
     if len(cell_list) == 1:
