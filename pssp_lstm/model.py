@@ -1,5 +1,6 @@
 """Bidirectional LSTM RNN for protein secondary structure prediction"""
 import tensorflow as tf
+from custom_tensorflow_rnn.stlstm import STLSTMCell
 from collections import namedtuple
 from dataset import create_dataset
 from metrics import streaming_confusion_matrix, cm_summary
@@ -105,9 +106,6 @@ class BDRNNModel(object):
         inputs, tgt_outputs, seq_len = sample
 
         with tf.variable_scope(scope or "dynamic_bdrnn", dtype=tf.float32):
-            # TODO: hidden activations are passed thru FC net
-            # TODO: hidden-to-hidden network has skip connections (residual)
-
 
             # create bdrnn
             fw_cells = _create_rnn_cell(num_units=hparams.num_units,
@@ -269,8 +267,8 @@ def _create_rnn_cell(num_units, num_layers, mode):
 
     cell_list = []
     for i in range(num_layers):
-        single_cell = tf.contrib.rnn.LSTMBlockCell(name="lstm",
-                                                   num_units=num_units)
+        single_cell = STLSTMCell(name="stlstm",
+                                 num_units=num_units)
         cell_list.append(single_cell)
 
     if len(cell_list) == 1:
