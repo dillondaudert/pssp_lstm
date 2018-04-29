@@ -36,6 +36,7 @@ includes feed forward networks between the long short term memory cells, a path 
 ## Requirements
 
 - Python 3
+- Numpy
 - [TensorFlow](https://www.tensorflow.org/install/) >= v1.7
 
 
