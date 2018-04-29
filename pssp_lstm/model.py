@@ -1,5 +1,6 @@
 """Bidirectional LSTM RNN for protein secondary structure prediction"""
 import tensorflow as tf
+from custom_tensorflow_rnn.stlstm import STLSTMCell
 from collections import namedtuple
 from dataset import create_dataset
 from metrics import streaming_confusion_matrix, cm_summary
@@ -62,7 +63,7 @@ class BDRNNModel(object):
         if self.mode == tf.contrib.learn.ModeKeys.TRAIN:
 
             opt = tf.train.AdadeltaOptimizer(learning_rate=1.0,
-                                             epsilon=1e-06)
+                                             epsilon=10e-06)
 
             # gradients
             gradients = tf.gradients(self.train_loss,
@@ -105,10 +106,6 @@ class BDRNNModel(object):
         inputs, tgt_outputs, seq_len = sample
 
         with tf.variable_scope(scope or "dynamic_bdrnn", dtype=tf.float32):
-            # TODO: hidden activations are passed thru FC net
-            # TODO: hidden-to-hidden network has skip connections (residual)
-            # TODO: initial hidden and cell states are learned
-
 
             # create bdrnn
             fw_cells = _create_rnn_cell(num_units=hparams.num_units,
@@ -121,19 +118,17 @@ class BDRNNModel(object):
                                         mode=self.mode,
                                         )
 
-#            print(fw_cells.zero_state(1, dtype=tf.float32))
-#            initial_fw_state = tf.get_variable("initial_fw_state", shape=fw_cells.state_size)
-#            initial_bw_state = tf.get_variable("initial_bw_state", shape=bw_cells.state_size)
-#            initial_fw_state_tiled = tf.tile(initial_fw_state, [hparams.batch_size, 1])
-#            initial_bw_state_tiled = tf.tile(initial_bw_state, [hparams.batch_size, 1])
+            init_state_fw = _get_initial_state(fw_cells.state_size, tf.shape(inputs)[0], "initial_state_fw")
+            init_state_bw = _get_initial_state(bw_cells.state_size, tf.shape(inputs)[0], "initial_state_bw")
+
 
             # run bdrnn
             outputs, output_states = tf.nn.bidirectional_dynamic_rnn(cell_fw=fw_cells,
                                                                      cell_bw=bw_cells,
                                                                      inputs=inputs,
                                                                      sequence_length=seq_len,
-                                                                     initial_state_fw=None,
-                                                                     initial_state_bw=None,
+                                                                     initial_state_fw=init_state_fw,
+                                                                     initial_state_bw=init_state_bw,
                                                                      dtype=tf.float32)
             # outputs is a tuple (output_fw, output_bw)
             # output_fw/output_bw are tensors [batch_size, max_time, cell.output_size]
@@ -174,12 +169,14 @@ class BDRNNModel(object):
                                                                   name="crossent")
 
             # divide loss by batch_size * mean(seq_len)
-            loss = (tf.reduce_sum(crossent*mask)/(hparams.batch_size*tf.reduce_mean(tf.cast(seq_len,
-                                                                                            tf.float32))))
+            loss = tf.reduce_sum(crossent*mask)/tf.cast(hparams.batch_size, tf.float32)
 
             metrics = []
             update_ops = []
             if self.mode == tf.contrib.learn.ModeKeys.EVAL:
+                # mean eval loss
+                loss, loss_update = tf.metrics.mean(values=loss)
+
                 predictions = tf.argmax(input=logits, axis=-1)
                 tgt_labels = tf.argmax(input=tgt_outputs, axis=-1)
                 acc, acc_update = tf.metrics.accuracy(predictions=predictions,
@@ -195,7 +192,7 @@ class BDRNNModel(object):
                                                            weights=mask_flat)
                 tf.add_to_collection("eval", cm_summary(cm, hparams.num_labels))
                 metrics = [acc, cm]
-                update_ops = [acc_update, cm_update]
+                update_ops = [loss_update, acc_update, cm_update]
 
             return logits, loss, metrics, update_ops
 
@@ -232,6 +229,30 @@ class BDRNNModel(object):
                          self.eval_summary,
                          self.update_metrics])
 
+
+def _get_initial_state(state_size: tuple, batch_size, name):
+    """
+    Create a tuple of LSTMStateTuple(c, h), with one tuple per layer in state_size. Each state
+    vector will have shape [batch_size, cell_size].
+    `name` is a prefix for the variable name of the initial states.
+
+    Example:
+        (LSTMStateTuple(c=[batch_size, 300], h=[batch_size, 300]), LSTMStateTuple(c=[batch_size, 300], h=[batch_size, 300]))
+
+    """
+
+    init_states = []
+
+    # for each layer, create a tf variable and tile
+    for i, tupl in enumerate(state_size):
+        c = tf.get_variable(name+"_c_%d"%i, shape=[1, tupl[0]])
+        h = tf.get_variable(name+"_h_%d"%i, shape=[1, tupl[1]])
+        c_tiled = tf.tile(c, [batch_size, 1])
+        h_tiled = tf.tile(h, [batch_size, 1])
+        init_states.append(tf.nn.rnn_cell.LSTMStateTuple(c_tiled, h_tiled))
+
+    return tuple(init_states)
+
 def _create_rnn_cell(num_units, num_layers, mode):
     """Create single- or multi-layer RNN cell.
 
@@ -246,8 +267,8 @@ def _create_rnn_cell(num_units, num_layers, mode):
 
     cell_list = []
     for i in range(num_layers):
-        single_cell = tf.contrib.rnn.LSTMBlockCell(name="lstm",
-                                                   num_units=num_units)
+        single_cell = STLSTMCell(name="stlstm",
+                                 num_units=num_units)
         cell_list.append(single_cell)
 
     if len(cell_list) == 1:

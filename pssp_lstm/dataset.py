@@ -31,27 +31,42 @@ def create_dataset(hparams, mode):
 
     dataset = tf.data.TFRecordDataset(input_file)
 
+    # parse the records
+    dataset = dataset.map(lambda x:parser(x, hparams), num_parallel_calls=4)
+
     # perform the appropriate transformations and return
     dataset = dataset.cache()
 
     if shuffle:
-        dataset = dataset.shuffle(buffer_size=batch_size*100)
+        dataset = dataset.apply(tf.contrib.data.shuffle_and_repeat(buffer_size=batch_size*100, count=num_epochs))
+    else:
+        dataset = dataset.repeat(num_epochs)
 
-    dataset = dataset.repeat(num_epochs)
 
-    # parse the records
-    dataset = dataset.map(lambda x:parser(x, hparams), num_parallel_calls=4)
 
 
     # padded batch to support sequences of multiple lengths
-    dataset = dataset.padded_batch(
-            batch_size,
-            padded_shapes=(tf.TensorShape([None, hparams.num_features]),
-                           tf.TensorShape([None, hparams.num_labels]),
-                           tf.TensorShape([])))
+    #dataset = dataset.padded_batch(
+    #        batch_size,
+    #        padded_shapes=(tf.TensorShape([None, hparams.num_features]),
+    #                       tf.TensorShape([None, hparams.num_labels]),
+    #                       tf.TensorShape([])))
+    dataset = dataset.apply(tf.contrib.data.bucket_by_sequence_length(
+        lambda a, b, seq_len: seq_len,
+        [50, 150, 250, 350, # buckets
+         450, 550, 650],
+        [batch_size, batch_size, batch_size, # all buckets have the
+         batch_size, batch_size, batch_size, # the same batch size
+         batch_size, batch_size],
+        padded_shapes=(tf.TensorShape([None, hparams.num_features]),
+                       tf.TensorShape([None, hparams.num_labels]),
+                       tf.TensorShape([]))))
+
+
+
 
     # prefetch on CPU
-    dataset = dataset.prefetch(1)
+    dataset = dataset.prefetch(2)
 
     return dataset
 
