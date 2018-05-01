@@ -18,4 +18,4 @@ includes feed forward networks between the long short term memory cells, a path 
 - **metrics.py**: Custom streaming confusion matrix 
 - **train.py**: Train a model
 - **evaluate.py**: Evaluate a model
-- **pssp_lstm.py**: Driver/command line tool
+- **__main__.py**: Driver/command line tool
