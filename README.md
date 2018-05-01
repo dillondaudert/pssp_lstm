@@ -54,7 +54,7 @@ This will create the training, validation, and test datasets. See [make_tfrecord
 
 Assuming the TF records datasets have been created, the quickest way to train a model is by invoking
 ```
-python -m pssp_lstm.pssp_lstm train /path/to/data/dir /path/to/log/dir
+python -m pssp_lstm train /path/to/data/dir /path/to/log/dir
 ```
 This will train the model as described on the CullPDB dataset. By default, this will train for 125 epochs with a batch size of 128. During training, you should see regular status messages: 
 ```
@@ -81,11 +81,11 @@ By default, this will start a web server on the local host.
 
 Once a model is trained, you can evaluate it vs. the CullPDB 513 test set with the following call:
 ```
-python -m pssp_lstm.pssp_lstm evaluate /path/to/data/dir /path/to/ckpts/ckpt
+python -m pssp_lstm evaluate /path/to/data/dir /path/to/ckpts/ckpt
 ```
 Here, the second argument is not a directory, but instead the path to a model checkpoint previously saved during training. These will be under `logdir/ckpt/`, where `logdir` was the directory specified at training, and have names of the form `ckpt-3000*`. There will be multiple files that begin this way per checkpoint, and only the prefix is necessary. One example of evaluating a model might look like
 ```
-python -m pssp_lstm.pssp_lstm evaluate /home/user/data/ /home/user/models/ckpt/ckpt-3000
+python -m pssp_lstm evaluate /home/user/data/ /home/user/models/ckpt/ckpt-3000
 ```
 
 # Resources
