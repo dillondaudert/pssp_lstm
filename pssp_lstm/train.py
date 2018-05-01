@@ -42,7 +42,7 @@ def train(hparams):
     train_tuple.graph.finalize()
 
     profile_next_step = False
-    eval_step = 50
+    eval_step = 100
     patience = 0
     max_patience = hparams.num_keep_ckpts
     best_eval_loss = np.Inf
