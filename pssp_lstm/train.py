@@ -42,8 +42,13 @@ def train(hparams):
     train_tuple.graph.finalize()
 
     profile_next_step = False
+    eval_step = 50
+    patience = 0
+    max_patience = hparams.num_keep_ckpts
+    best_eval_loss = np.Inf
+    best_step = -1
     # Train until the dataset throws an error (at the end of num_epochs)
-    while True:
+    while patience < max_patience:
         step_time = []
         try:
             curr_time = process_time()
@@ -62,9 +67,9 @@ def train(hparams):
             if global_step % 15 == 0:
                 if hparams.logging:
                     summary_writer.add_summary(summary, global_step)
-                print("Step: %d, Training Loss: %f, Avg Step/Sec: %2.2f" % (global_step, train_loss, np.mean(step_time)))
+                print("Step: %d, Training Loss: %4.4f, Avg Sec/Step: %2.2f" % (global_step, train_loss, np.mean(step_time)))
 
-            if global_step % 100 == 0:
+            if global_step % eval_step == 0:
                 step_time = []
                 profile_next_step = True
                 # Do one evaluation
@@ -77,9 +82,17 @@ def train(hparams):
                     try:
                         eval_loss, eval_acc, _, eval_summary, _ = eval_tuple.model.eval(eval_tuple.session)
                     except tf.errors.OutOfRangeError:
-                        print("Step: %d, Eval Loss: %f, Eval Accuracy: %f" % (global_step,
+                        print("Step: %d, Eval Loss: %4.4f, Eval Accuracy: %1.4f" % (global_step,
                                                                               eval_loss,
                                                                               eval_acc))
+                        if eval_loss < best_eval_loss:
+                            patience = 0
+                            best_eval_loss = eval_loss
+                            best_step = global_step
+                        else:
+                            patience += 1
+                            print("Patience: %d" % patience)
+
                         if hparams.logging:
                             summary_writer.add_summary(eval_summary, global_step)
                         break
@@ -90,4 +103,5 @@ def train(hparams):
 
     # End of training
     summary_writer.close()
+    print("Best validation loss: %3.3f at step %d" % (best_eval_loss, best_step))
     print("Total Training Time: %4.2f" % (process_time() - start_time))

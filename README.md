@@ -56,12 +56,12 @@ Assuming the TF records datasets have been created, the quickest way to train a 
 ```
 python -m pssp_lstm train /path/to/data/dir /path/to/log/dir
 ```
-This will train the model as described on the CullPDB dataset. By default, this will train for 125 epochs with a batch size of 128. During training, you should see regular status messages: 
+This will train the model as described on the CullPDB dataset. This will train on batches of 64 until the validation error hasn't increased for 5 validation steps. During training, you should see regular status messages: 
 ```
 ...
-Step: 75, Training Loss: 1.687496, Avg Step/Sec: 2.27
-Step: 90, Training Loss: 1.663782, Avg Step/Sec: 2.09
-Step: 100, Eval Loss: 1.637190, Eval Accuracy: 0.331677
+Step: 630, Training Loss: 245.6874, Avg Sec/Step: 1.29
+Step: 645, Training Loss: 129.7199, Avg Step/Sec: 0.77
+Step: 650, Eval Loss: 132.1941, Eval Accuracy: 0.5192
 ...
 ```
 
