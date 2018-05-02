@@ -44,7 +44,7 @@ def train(hparams):
     profile_next_step = False
     eval_step = 100
     patience = 0
-    max_patience = hparams.num_keep_ckpts
+    max_patience = hparams.num_keep_ckpts-1
     best_eval_loss = np.Inf
     best_step = -1
     # Train until the dataset throws an error (at the end of num_epochs)
