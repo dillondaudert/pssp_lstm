@@ -119,25 +119,28 @@ class BDRNNModel(object):
                                         mode=self.mode,
                                         )
 
-            init_state_fw = _get_initial_state(fw_cells.state_size, tf.shape(inputs)[0], "initial_state_fw")
-            init_state_bw = _get_initial_state(bw_cells.state_size, tf.shape(inputs)[0], "initial_state_bw")
+            init_state_fw = _get_initial_state([cell.state_size for cell in fw_cells],
+                                               tf.shape(inputs)[0], "initial_state_fw")
+            init_state_bw = _get_initial_state([cell.state_size for cell in bw_cells],
+                                               tf.shape(inputs)[0], "initial_state_bw")
 
 
             # run bdrnn
-            outputs, output_states = tf.nn.bidirectional_dynamic_rnn(cell_fw=fw_cells,
-                                                                     cell_bw=bw_cells,
-                                                                     inputs=inputs,
-                                                                     sequence_length=seq_len,
-                                                                     initial_state_fw=init_state_fw,
-                                                                     initial_state_bw=init_state_bw,
-                                                                     dtype=tf.float32)
+            combined_outputs, output_state_fw, output_state_bw = \
+                    tf.contrib.rnn.stack_bidirectional_dynamic_rnn(cells_fw=fw_cells,
+                                                                   cells_bw=bw_cells,
+                                                                   inputs=inputs,
+                                                                   sequence_length=seq_len,
+                                                                   initial_states_fw=init_state_fw,
+                                                                   initial_states_bw=init_state_bw,
+                                                                   dtype=tf.float32)
             # outputs is a tuple (output_fw, output_bw)
             # output_fw/output_bw are tensors [batch_size, max_time, cell.output_size]
             # outputs_states is a tuple (output_state_fw, output_state_bw) containing final states for
             # forward and backward rnn
 
             # concatenate the outputs of each direction
-            combined_outputs = tf.concat([outputs[0], outputs[1]], axis=-1)
+            #combined_outputs = tf.concat([outputs[0], outputs[1]], axis=-1)
 
             # dense output layers
             dense1 = tf.layers.dense(inputs=combined_outputs,
@@ -233,31 +236,33 @@ class BDRNNModel(object):
                          self.update_metrics])
 
 
-def _get_initial_state(state_size: tuple, batch_size, name):
+def _get_initial_state(state_sizes: list, batch_size, name):
     """
-    Create a tuple of LSTMStateTuple(c, h), with one tuple per layer in state_size. Each state
+    Create a list of LSTMStateTuple(c, h), with one tuple per layer in state_size. Each state
     vector will have shape [batch_size, cell_size].
     `name` is a prefix for the variable name of the initial states.
+    Args:
+        state_sizes: A list of RNNCell.state_size values (LSTMStateTuples)
 
     Example:
-        (LSTMStateTuple(c=[batch_size, 300], h=[batch_size, 300]), LSTMStateTuple(c=[batch_size, 300], h=[batch_size, 300]))
+        [LSTMStateTuple(c=[batch_size, 300], h=[batch_size, 300]), LSTMStateTuple(c=[batch_size, 300], h=[batch_size, 300])]
 
     """
 
     init_states = []
 
     # for each layer, create a tf variable and tile
-    for i, tupl in enumerate(state_size):
+    for i, tupl in enumerate(state_sizes):
         c = tf.get_variable(name+"_c_%d"%i, shape=[1, tupl[0]])
         h = tf.get_variable(name+"_h_%d"%i, shape=[1, tupl[1]])
         c_tiled = tf.tile(c, [batch_size, 1])
         h_tiled = tf.tile(h, [batch_size, 1])
         init_states.append(tf.nn.rnn_cell.LSTMStateTuple(c_tiled, h_tiled))
 
-    return tuple(init_states)
+    return init_states
 
 def _create_rnn_cell(num_units, num_layers, mode):
-    """Create single- or multi-layer RNN cell.
+    """Create a list of RNN cells.
 
     Args:
         num_units: the depth of each unit
@@ -265,7 +270,7 @@ def _create_rnn_cell(num_units, num_layers, mode):
         mode: either tf.contrib.learn.TRAIN/EVAL/INFER
 
     Returns:
-        An 'RNNCell' instance
+        A list of 'RNNCell' instances
     """
 
     cell_list = []
@@ -278,7 +283,4 @@ def _create_rnn_cell(num_units, num_layers, mode):
                                  st_residual=True)
         cell_list.append(single_cell)
 
-    if len(cell_list) == 1:
-        return cell_list[0]
-    else:
-        return tf.nn.rnn_cell.MultiRNNCell(cell_list)
+    return cell_list
