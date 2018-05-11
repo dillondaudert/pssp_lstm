@@ -1,4 +1,4 @@
-"""Training loop."""
+"""Evaluate the model"""
 # basic example of training a network end-to-end
 from time import process_time
 from pathlib import Path
