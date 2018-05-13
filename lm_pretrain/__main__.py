@@ -31,7 +31,7 @@ def main():
     HPARAMS.train_file = str(Path(args.datadir, "cpdb_train.tfrecords").absolute())
     HPARAMS.valid_file = str(Path(args.datadir, "cpdb_valid.tfrecords").absolute())
 
-    train(HPARAMS)
+    pretrain(HPARAMS)
 
 
 if __name__ == "__main__":
