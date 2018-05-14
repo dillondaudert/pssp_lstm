@@ -113,8 +113,10 @@ class LMModel(object):
                                         num_layers=hparams.num_layers,
                                         mode=self.mode
                                         )
+            init_state = _get_initial_state(fw_cells.state_size, tf.shape(inputs)[0], "initial_state_fw")
 
             outputs, output_states = tf.nn.dynamic_rnn(cell=fw_cells,
+                                                       initial_state=init_state,
                                                        inputs=inputs,
                                                        sequence_length=seq_len,
                                                        dtype=tf.float32)
