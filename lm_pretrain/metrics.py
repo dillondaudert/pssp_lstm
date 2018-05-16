@@ -24,7 +24,7 @@ def streaming_confusion_matrix(labels, predictions, num_classes, weights=None):
                                      predictions=predictions,
                                      num_classes=num_classes,
                                      weights=weights,
-                                     name="_confusion")
+                                     name="cm")
 
     # accumulator for the confusion matrix
     confusion = tf.get_local_variable(name="confusion",

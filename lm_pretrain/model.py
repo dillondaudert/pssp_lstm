@@ -45,7 +45,7 @@ class LMModel(object):
 
         tf.get_variable_scope().set_initializer(initializer)
 
-        res = self._build_graph(hparams, scope=scope)
+        res = self._build_graph(hparams)
 
         # Graph losses
         if self.mode == tf.contrib.learn.ModeKeys.TRAIN:
@@ -93,11 +93,10 @@ class LMModel(object):
 
         self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=hparams.num_keep_ckpts)
 
-    def _build_graph(self, hparams, scope=None):
+    def _build_graph(self, hparams):
         """Construct the train, evaluation, and inference graphs.
         Args:
             hparams: The hyperparameters for configuration
-            scope: The variable scope name for this subgraph
         Returns:
             A tuple with (logits, loss, metrics, update_ops)
         """
@@ -106,14 +105,15 @@ class LMModel(object):
 
         inputs, tgt_outputs, seq_len = sample
 
-        with tf.variable_scope(scope or "lm_rnn", dtype=tf.float32):
+        with tf.variable_scope("lm_dynamic_rnn", dtype=tf.float32):
 
             # create bdrnn
             fw_cells = _create_rnn_cell(num_units=hparams.num_units,
                                         num_layers=hparams.num_layers,
                                         mode=self.mode
                                         )
-            init_state = _get_initial_state(fw_cells.state_size, tf.shape(inputs)[0], "initial_state_fw")
+            with tf.variable_scope("initial_states", dtype=tf.float32):
+                init_state = _get_initial_state(fw_cells.state_size, tf.shape(inputs)[0], "fw")
 
             outputs, output_states = tf.nn.dynamic_rnn(cell=fw_cells,
                                                        initial_state=init_state,
@@ -121,28 +121,30 @@ class LMModel(object):
                                                        sequence_length=seq_len,
                                                        dtype=tf.float32)
 
-            # dense output layers
-            dense1 = tf.layers.dense(inputs=outputs,
-                                     units=hparams.num_dense_units,
-                                     kernel_initializer=tf.glorot_uniform_initializer(),
-                                     activation=tf.nn.relu,
-                                     use_bias=True)
-            drop1 = tf.layers.dropout(inputs=dense1,
-                                      rate=hparams.dropout,
-                                      training=self.mode==tf.contrib.learn.ModeKeys.TRAIN)
-            dense2 = tf.layers.dense(inputs=drop1,
-                                     units=hparams.num_dense_units,
-                                     kernel_initializer=tf.glorot_uniform_initializer(),
-                                     activation=tf.nn.relu,
-                                     use_bias=True)
-            drop2 = tf.layers.dropout(inputs=dense2,
-                                      rate=hparams.dropout,
-                                      training=self.mode==tf.contrib.learn.ModeKeys.TRAIN)
+            with tf.variable_scope("dense_output", dtype=tf.float32):
+                # dense output layers
+                dense1 = tf.layers.dense(inputs=outputs,
+                                         units=hparams.num_dense_units,
+                                         kernel_initializer=tf.glorot_uniform_initializer(),
+                                         activation=tf.nn.relu,
+                                         use_bias=True)
+                drop1 = tf.layers.dropout(inputs=dense1,
+                                          rate=hparams.dropout,
+                                          training=self.mode==tf.contrib.learn.ModeKeys.TRAIN)
+                dense2 = tf.layers.dense(inputs=drop1,
+                                         units=hparams.num_dense_units,
+                                         kernel_initializer=tf.glorot_uniform_initializer(),
+                                         activation=tf.nn.relu,
+                                         use_bias=True)
+                drop2 = tf.layers.dropout(inputs=dense2,
+                                          rate=hparams.dropout,
+                                          training=self.mode==tf.contrib.learn.ModeKeys.TRAIN)
 
-            logits = tf.layers.dense(inputs=drop2,
-                                     units=hparams.num_labels,
-                                     use_bias=False)
+                logits = tf.layers.dense(inputs=drop2,
+                                         units=hparams.num_labels,
+                                         use_bias=False)
 
+        with tf.variable_scope("loss", dtype=tf.float32):
             # mask out entries longer than target sequence length
             mask = tf.sequence_mask(seq_len, dtype=tf.float32)
 
@@ -153,30 +155,30 @@ class LMModel(object):
             # divide loss by batch_size * mean(seq_len)
             loss = tf.reduce_sum(crossent*mask)/tf.cast(hparams.batch_size, tf.float32)
 
-            metrics = []
-            update_ops = []
-            if self.mode == tf.contrib.learn.ModeKeys.EVAL:
-                # mean eval loss
-                loss, loss_update = tf.metrics.mean(values=loss)
+        metrics = []
+        update_ops = []
+        if self.mode == tf.contrib.learn.ModeKeys.EVAL:
+            # mean eval loss
+            loss, loss_update = tf.metrics.mean(values=loss)
 
-                predictions = tf.argmax(input=logits, axis=-1)
-                tgt_labels = tf.argmax(input=tgt_outputs, axis=-1)
-                acc, acc_update = tf.metrics.accuracy(predictions=predictions,
-                                                      labels=tgt_labels,
-                                                      weights=mask)
-                # confusion matrix
-                targets_flat = tf.reshape(tgt_labels, [-1])
-                predictions_flat = tf.reshape(predictions, [-1])
-                mask_flat = tf.reshape(mask, [-1])
-                cm, cm_update = streaming_confusion_matrix(labels=targets_flat,
-                                                           predictions=predictions_flat,
-                                                           num_classes=hparams.num_labels,
-                                                           weights=mask_flat)
-                tf.add_to_collection("eval", cm_summary(cm, hparams.num_labels))
-                metrics = [acc, cm]
-                update_ops = [loss_update, acc_update, cm_update]
+            predictions = tf.argmax(input=logits, axis=-1)
+            tgt_labels = tf.argmax(input=tgt_outputs, axis=-1)
+            acc, acc_update = tf.metrics.accuracy(predictions=predictions,
+                                                  labels=tgt_labels,
+                                                  weights=mask)
+            # confusion matrix
+            targets_flat = tf.reshape(tgt_labels, [-1])
+            predictions_flat = tf.reshape(predictions, [-1])
+            mask_flat = tf.reshape(mask, [-1])
+            cm, cm_update = streaming_confusion_matrix(labels=targets_flat,
+                                                       predictions=predictions_flat,
+                                                       num_classes=hparams.num_labels,
+                                                       weights=mask_flat)
+            tf.add_to_collection("eval", cm_summary(cm, hparams.num_labels))
+            metrics = [acc, cm]
+            update_ops = [loss_update, acc_update, cm_update]
 
-            return logits, loss, metrics, update_ops
+        return logits, loss, metrics, update_ops
 
     def train(self, sess):
         """Do a single training step."""
