@@ -35,6 +35,10 @@ def pretrain(hparams):
 
     train_tuple.session.run([initializer])
 
+    # restore the lm parameters
+    if hparams.lm_ckpt != "" and hparams.model == "bdrnn":
+        train_tuple.model.lm_saver.restore(train_tuple.session, hparams.lm_ckpt)
+
     start_time = process_time()
     # initialize the training dataset
     train_tuple.session.run([train_tuple.iterator.initializer])
