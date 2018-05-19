@@ -27,7 +27,10 @@ def create_dataset(hparams, mode):
         print("INFER mode not supported.")
         quit()
 
-    parser = cpdb_pretrain_parser
+    if hparams.model == "lm":
+        parser = cpdb_pretrain_parser
+    elif hparams.model == "bdrnn":
+        parser = cpdb_parser
 
     dataset = tf.data.TFRecordDataset(input_file)
 
@@ -42,15 +45,8 @@ def create_dataset(hparams, mode):
     else:
         dataset = dataset.repeat(num_epochs)
 
+    num_labels = hparams.num_tgt_labels if hparams.model == "bdrnn" else hparams.num_inp_labels
 
-
-
-    # padded batch to support sequences of multiple lengths
-    #dataset = dataset.padded_batch(
-    #        batch_size,
-    #        padded_shapes=(tf.TensorShape([None, hparams.num_features]),
-    #                       tf.TensorShape([None, hparams.num_labels]),
-    #                       tf.TensorShape([])))
     dataset = dataset.apply(tf.contrib.data.bucket_by_sequence_length(
         lambda a, b, seq_len: seq_len,
         [50, 150, 250, 350, # buckets
@@ -59,7 +55,7 @@ def create_dataset(hparams, mode):
          batch_size, batch_size, batch_size, # the same batch size
          batch_size, batch_size],
         padded_shapes=(tf.TensorShape([None, hparams.num_features]),
-                       tf.TensorShape([None, hparams.num_labels]),
+                       tf.TensorShape([None, num_labels]),
                        tf.TensorShape([]))))
 
 
@@ -99,9 +95,31 @@ def cpdb_pretrain_parser(record, hparams):
                              0., 0., 0., 0., 0., 0., 0.,
                              0.]])
     inputs = tf.reshape(seq, [-1, hparams.num_features])
-    outputs = inputs[:, 0:hparams.num_labels]
+    outputs = inputs[:, 0:hparams.num_inp_labels]
     inputs = tf.concat([in_noseq, inputs], 0)
     outputs = tf.concat([outputs, out_noseq], 0)
     seq_len = seq_len + tf.constant(1, dtype=tf.int32)
 
     return inputs, outputs, seq_len
+
+def cpdb_parser(record, hparams):
+    """
+    Parse a CPDB tfrecord Record into a tuple of tensors.
+    """
+
+    keys_to_features = {
+        "seq_len": tf.FixedLenFeature([], tf.int64),
+        "seq_data": tf.VarLenFeature(tf.float32),
+        "label_data": tf.VarLenFeature(tf.float32),
+        }
+
+    parsed = tf.parse_single_example(record, keys_to_features)
+
+    seq_len = parsed["seq_len"]
+    seq_len = tf.cast(seq_len, tf.int32)
+    seq = tf.sparse_tensor_to_dense(parsed["seq_data"])
+    label = tf.sparse_tensor_to_dense(parsed["label_data"])
+    seq = tf.reshape(seq, [-1, hparams.num_features])
+    tgt_outputs = tf.reshape(label, [-1, hparams.num_tgt_labels])
+
+    return seq, tgt_outputs, seq_len
