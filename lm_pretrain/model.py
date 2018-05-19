@@ -18,8 +18,9 @@ def create_model(hparams, mode):
     graph = tf.Graph()
 
     with graph.as_default():
-        dataset = create_dataset(hparams, mode)
-        iterator = dataset.make_initializable_iterator()
+        with tf.name_scope("input_pipe"):
+            dataset = create_dataset(hparams, mode)
+            iterator = dataset.make_initializable_iterator()
         model = LMModel(hparams=hparams,
                         iterator=iterator,
                         mode=mode)
@@ -96,6 +97,7 @@ class LMModel(object):
 
 
         self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=hparams.num_keep_ckpts)
+        self.lm_saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="lm_rnn/fw"))
 
     def _build_lm_graph(self, hparams):
         """Construct the train, evaluation, and inference graphs.
@@ -115,13 +117,16 @@ class LMModel(object):
                                      units=hparams.num_units,
                                      kernel_initializer=tf.glorot_uniform_initializer())
 
-        with tf.variable_scope("lm_rnn", dtype=tf.float32):
+        with tf.variable_scope("lm_rnn", dtype=tf.float32) as lm_rnn:
             with tf.variable_scope("fw", dtype=tf.float32):
                 # create lm
                 fw_cells = _create_rnn_cell(num_units=hparams.num_units,
                                             num_layers=1,
                                             mode=self.mode)
+
                 fw_cells = fw_cells[0]
+                # NOTE: This input shape is hard coded
+                fw_cells.build([None, hparams.num_units])
                 init_state = _get_initial_state([fw_cells.state_size], tf.shape(inputs)[0], "lm")
                 init_state = init_state[0]
 
@@ -204,14 +209,19 @@ class LMModel(object):
                     lm_fw_cell = _create_rnn_cell(num_units=hparams.num_units,
                                                   num_layers=1,
                                                   mode=self.mode)
+                    # build the cell so it is in the correct scope
+                    # NOTE: this is hard coded
+                    lm_fw_cell[0].build([None, hparams.num_units])
                     lm_init_state_fw = _get_initial_state([lm_fw_cell[0].state_size], tf.shape(inputs)[0], "lm")
                 with tf.variable_scope("bw", dtype=tf.float32):
                     lm_bw_cell = _create_rnn_cell(num_units=hparams.num_units,
                                                   num_layers=1,
                                                   mode=self.mode)
+                    # NOTE: this is hard coded
+                    lm_bw_cell[0].build([None, hparams.num_units])
                     lm_init_state_bw = _get_initial_state([lm_bw_cell[0].state_size], tf.shape(inputs)[0], "lm")
 
-        with tf.variable_scope("bdrnn", dtype=tf.float32):
+        with tf.variable_scope("bdrnn", dtype=tf.float32) as bdrnn_scope:
             # create bdrnn
             with tf.variable_scope("fw", dtype=tf.float32):
                 fw_cells = _create_rnn_cell(num_units=hparams.num_units,
@@ -230,20 +240,21 @@ class LMModel(object):
                 init_state_bw = _get_initial_state([cell.state_size for cell in bw_cells],
                                                    tf.shape(inputs)[0], "initial_state_bw")
 
-        fw_cells = lm_fw_cell + fw_cells
-        bw_cells = lm_bw_cell + bw_cells
-        init_state_fw = lm_init_state_fw + init_state_fw
-        init_state_bw = lm_init_state_bw + init_state_bw
+            fw_cells = lm_fw_cell + fw_cells
+            bw_cells = lm_bw_cell + bw_cells
+            init_state_fw = lm_init_state_fw + init_state_fw
+            init_state_bw = lm_init_state_bw + init_state_bw
 
-        # run bdrnn
-        combined_outputs, output_state_fw, output_state_bw = \
-                tf.contrib.rnn.stack_bidirectional_dynamic_rnn(cells_fw=fw_cells,
-                                                               cells_bw=bw_cells,
-                                                               inputs=inputs,
-                                                               sequence_length=seq_len,
-                                                               initial_states_fw=init_state_fw,
-                                                               initial_states_bw=init_state_bw,
-                                                               dtype=tf.float32)
+            # run bdrnn
+            combined_outputs, output_state_fw, output_state_bw = \
+                    tf.contrib.rnn.stack_bidirectional_dynamic_rnn(cells_fw=fw_cells,
+                                                                   cells_bw=bw_cells,
+                                                                   inputs=inputs,
+                                                                   sequence_length=seq_len,
+                                                                   initial_states_fw=init_state_fw,
+                                                                   initial_states_bw=init_state_bw,
+                                                                   dtype=tf.float32,
+                                                                   scope=bdrnn_scope)
         # outputs is a tuple (output_fw, output_bw)
         # output_fw/output_bw are tensors [batch_size, max_time, cell.output_size]
         # outputs_states is a tuple (output_state_fw, output_state_bw) containing final states for
@@ -343,7 +354,6 @@ class LMModel(object):
                          self.confusion,
                          self.eval_summary,
                          self.update_metrics])
-
 
 
 def _get_initial_state(state_sizes: list, batch_size, name):
