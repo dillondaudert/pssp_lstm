@@ -1,4 +1,3 @@
-"""Bidirectional LSTM RNN for protein secondary structure prediction"""
 import tensorflow as tf
 from custom_rnn.stlstm import STLSTMCell
 from collections import namedtuple
@@ -45,7 +44,12 @@ class LMModel(object):
 
         tf.get_variable_scope().set_initializer(initializer)
 
-        res = self._build_graph(hparams)
+        if hparams.model == "lm":
+            hparams.num_labels = hparams.num_inp_labels
+            res = self._build_lm_graph(hparams)
+        elif hparams.model == "bdrnn":
+            hparams.num_labels = hparams.num_tgt_labels
+            res = self._build_bdrnn_graph(hparams)
 
         # Graph losses
         if self.mode == tf.contrib.learn.ModeKeys.TRAIN:
@@ -93,7 +97,7 @@ class LMModel(object):
 
         self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=hparams.num_keep_ckpts)
 
-    def _build_graph(self, hparams):
+    def _build_lm_graph(self, hparams):
         """Construct the train, evaluation, and inference graphs.
         Args:
             hparams: The hyperparameters for configuration
@@ -105,55 +109,48 @@ class LMModel(object):
 
         inputs, tgt_outputs, seq_len = sample
 
-        with tf.variable_scope("lm_dynamic_rnn", dtype=tf.float32):
+        # linear projection to the same dimension as the state size
+        with tf.variable_scope("lm_in", dtype=tf.float32):
+            inputs = tf.layers.dense(inputs=inputs,
+                                     units=hparams.num_units,
+                                     kernel_initializer=tf.glorot_uniform_initializer())
 
-            # create bdrnn
-            fw_cells = _create_rnn_cell(num_units=hparams.num_units,
-                                        num_layers=hparams.num_layers,
-                                        mode=self.mode
-                                        )
-            with tf.variable_scope("initial_states", dtype=tf.float32):
-                init_state = _get_initial_state(fw_cells.state_size, tf.shape(inputs)[0], "fw")
+        with tf.variable_scope("lm_rnn", dtype=tf.float32):
+            with tf.variable_scope("fw", dtype=tf.float32):
+                # create lm
+                fw_cells = _create_rnn_cell(num_units=hparams.num_units,
+                                            num_layers=1,
+                                            mode=self.mode)
+                fw_cells = fw_cells[0]
+                init_state = _get_initial_state([fw_cells.state_size], tf.shape(inputs)[0], "lm")
+                init_state = init_state[0]
 
-            outputs, output_states = tf.nn.dynamic_rnn(cell=fw_cells,
-                                                       initial_state=init_state,
-                                                       inputs=inputs,
-                                                       sequence_length=seq_len,
-                                                       dtype=tf.float32)
+        outputs, output_states = tf.nn.dynamic_rnn(cell=fw_cells,
+                                                   initial_state=init_state,
+                                                   inputs=inputs,
+                                                   sequence_length=seq_len,
+                                                   dtype=tf.float32)
 
-            with tf.variable_scope("dense_output", dtype=tf.float32):
-                # dense output layers
-                dense1 = tf.layers.dense(inputs=outputs,
-                                         units=hparams.num_dense_units,
-                                         kernel_initializer=tf.glorot_uniform_initializer(),
-                                         activation=tf.nn.relu,
-                                         use_bias=True)
-                drop1 = tf.layers.dropout(inputs=dense1,
-                                          rate=hparams.dropout,
-                                          training=self.mode==tf.contrib.learn.ModeKeys.TRAIN)
-                dense2 = tf.layers.dense(inputs=drop1,
-                                         units=hparams.num_dense_units,
-                                         kernel_initializer=tf.glorot_uniform_initializer(),
-                                         activation=tf.nn.relu,
-                                         use_bias=True)
-                drop2 = tf.layers.dropout(inputs=dense2,
-                                          rate=hparams.dropout,
-                                          training=self.mode==tf.contrib.learn.ModeKeys.TRAIN)
+        with tf.variable_scope("lm_out", dtype=tf.float32):
+            # dense output layers
+            dense1 = tf.layers.dense(inputs=outputs,
+                                     units=hparams.num_dense_units,
+                                     kernel_initializer=tf.glorot_uniform_initializer(),
+                                     activation=tf.nn.relu,
+                                     use_bias=True)
+            logits = tf.layers.dense(inputs=dense1,
+                                     units=hparams.num_labels,
+                                     use_bias=False)
 
-                logits = tf.layers.dense(inputs=drop2,
-                                         units=hparams.num_labels,
-                                         use_bias=False)
+        # mask out entries longer than target sequence length
+        mask = tf.sequence_mask(seq_len, dtype=tf.float32)
 
-        with tf.variable_scope("loss", dtype=tf.float32):
-            # mask out entries longer than target sequence length
-            mask = tf.sequence_mask(seq_len, dtype=tf.float32)
+        crossent = tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits,
+                                                              labels=tgt_outputs,
+                                                              name="crossent")
 
-            crossent = tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits,
-                                                                  labels=tgt_outputs,
-                                                                  name="crossent")
-
-            # divide loss by batch_size * mean(seq_len)
-            loss = tf.reduce_sum(crossent*mask)/tf.cast(hparams.batch_size, tf.float32)
+        # divide loss by batch_size * mean(seq_len)
+        loss = tf.reduce_sum(crossent*mask)/tf.cast(hparams.batch_size, tf.float32)
 
         metrics = []
         update_ops = []
@@ -179,6 +176,140 @@ class LMModel(object):
             update_ops = [loss_update, acc_update, cm_update]
 
         return logits, loss, metrics, update_ops
+
+
+    def _build_bdrnn_graph(self, hparams):
+        """Construct the train, evaluation, and inference graphs.
+        Args:
+            hparams: The hyperparameters for configuration
+            scope: The variable scope name for this subgraph
+        Returns:
+            A tuple with (logits, loss, metrics, update_ops)
+        """
+
+        sample = self.iterator.get_next()
+
+        inputs, tgt_outputs, seq_len = sample
+
+        # linear projection to state size
+        with tf.variable_scope("bdrnn_in", dtype=tf.float32):
+            inputs = tf.layers.dense(inputs=inputs,
+                                     units=hparams.num_units,
+                                     kernel_initializer=tf.glorot_uniform_initializer())
+
+        if hparams.pretrained:
+            with tf.variable_scope("lm_rnn", dtype=tf.float32):
+                # create lm
+                with tf.variable_scope("fw", dtype=tf.float32):
+                    lm_fw_cell = _create_rnn_cell(num_units=hparams.num_units,
+                                                  num_layers=1,
+                                                  mode=self.mode)
+                    lm_init_state_fw = _get_initial_state([lm_fw_cell[0].state_size], tf.shape(inputs)[0], "lm")
+                with tf.variable_scope("bw", dtype=tf.float32):
+                    lm_bw_cell = _create_rnn_cell(num_units=hparams.num_units,
+                                                  num_layers=1,
+                                                  mode=self.mode)
+                    lm_init_state_bw = _get_initial_state([lm_bw_cell[0].state_size], tf.shape(inputs)[0], "lm")
+
+        with tf.variable_scope("bdrnn", dtype=tf.float32):
+            # create bdrnn
+            with tf.variable_scope("fw", dtype=tf.float32):
+                fw_cells = _create_rnn_cell(num_units=hparams.num_units,
+                                            num_layers=hparams.num_layers,
+                                            mode=self.mode
+                                            )
+                init_state_fw = _get_initial_state([cell.state_size for cell in fw_cells],
+                                                   tf.shape(inputs)[0], "initial_state_fw")
+
+            with tf.variable_scope("bw", dtype=tf.float32):
+                bw_cells = _create_rnn_cell(num_units=hparams.num_units,
+                                            num_layers=hparams.num_layers,
+                                            mode=self.mode,
+                                            )
+
+                init_state_bw = _get_initial_state([cell.state_size for cell in bw_cells],
+                                                   tf.shape(inputs)[0], "initial_state_bw")
+
+        fw_cells = lm_fw_cell + fw_cells
+        bw_cells = lm_bw_cell + bw_cells
+        init_state_fw = lm_init_state_fw + init_state_fw
+        init_state_bw = lm_init_state_bw + init_state_bw
+
+        # run bdrnn
+        combined_outputs, output_state_fw, output_state_bw = \
+                tf.contrib.rnn.stack_bidirectional_dynamic_rnn(cells_fw=fw_cells,
+                                                               cells_bw=bw_cells,
+                                                               inputs=inputs,
+                                                               sequence_length=seq_len,
+                                                               initial_states_fw=init_state_fw,
+                                                               initial_states_bw=init_state_bw,
+                                                               dtype=tf.float32)
+        # outputs is a tuple (output_fw, output_bw)
+        # output_fw/output_bw are tensors [batch_size, max_time, cell.output_size]
+        # outputs_states is a tuple (output_state_fw, output_state_bw) containing final states for
+        # forward and backward rnn
+
+        # concatenate the outputs of each direction
+        #combined_outputs = tf.concat([outputs[0], outputs[1]], axis=-1)
+
+        with tf.variable_scope("bdrnn_out", dtype=tf.float32):
+            # dense output layers
+            dense1 = tf.layers.dense(inputs=combined_outputs,
+                                     units=hparams.num_dense_units,
+                                     kernel_initializer=tf.glorot_uniform_initializer(),
+                                     activation=tf.nn.relu,
+                                     use_bias=True)
+            drop1 = tf.layers.dropout(inputs=dense1,
+                                      rate=hparams.dropout,
+                                      training=self.mode==tf.contrib.learn.ModeKeys.TRAIN)
+            dense2 = tf.layers.dense(inputs=drop1,
+                                     units=hparams.num_dense_units,
+                                     kernel_initializer=tf.glorot_uniform_initializer(),
+                                     activation=tf.nn.relu,
+                                     use_bias=True)
+            drop2 = tf.layers.dropout(inputs=dense2,
+                                      rate=hparams.dropout,
+                                      training=self.mode==tf.contrib.learn.ModeKeys.TRAIN)
+
+            logits = tf.layers.dense(inputs=drop2,
+                                     units=hparams.num_labels,
+                                     use_bias=False)
+
+        # mask out entries longer than target sequence length
+        mask = tf.sequence_mask(seq_len, dtype=tf.float32)
+
+        crossent = tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits,
+                                                              labels=tgt_outputs,
+                                                              name="crossent")
+
+        # divide loss by batch_size * mean(seq_len)
+        loss = tf.reduce_sum(crossent*mask)/tf.cast(hparams.batch_size, tf.float32)
+
+        metrics = []
+        update_ops = []
+        if self.mode == tf.contrib.learn.ModeKeys.EVAL:
+            # mean eval loss
+            loss, loss_update = tf.metrics.mean(values=loss)
+
+            predictions = tf.argmax(input=logits, axis=-1)
+            tgt_labels = tf.argmax(input=tgt_outputs, axis=-1)
+            acc, acc_update = tf.metrics.accuracy(predictions=predictions,
+                                                  labels=tgt_labels,
+                                                  weights=mask)
+            # confusion matrix
+            targets_flat = tf.reshape(tgt_labels, [-1])
+            predictions_flat = tf.reshape(predictions, [-1])
+            mask_flat = tf.reshape(mask, [-1])
+            cm, cm_update = streaming_confusion_matrix(labels=targets_flat,
+                                                       predictions=predictions_flat,
+                                                       num_classes=hparams.num_labels,
+                                                       weights=mask_flat)
+            tf.add_to_collection("eval", cm_summary(cm, hparams.num_labels))
+            metrics = [acc, cm]
+            update_ops = [loss_update, acc_update, cm_update]
+
+        return logits, loss, metrics, update_ops
+
 
     def train(self, sess):
         """Do a single training step."""
@@ -214,31 +345,34 @@ class LMModel(object):
                          self.update_metrics])
 
 
-def _get_initial_state(state_size: tuple, batch_size, name):
+
+def _get_initial_state(state_sizes: list, batch_size, name):
     """
-    Create a tuple of LSTMStateTuple(c, h), with one tuple per layer in state_size. Each state
+    Create a list of LSTMStateTuple(c, h), with one tuple per layer in state_size. Each state
     vector will have shape [batch_size, cell_size].
     `name` is a prefix for the variable name of the initial states.
+    Args:
+        state_sizes: A list of RNNCell.state_size values (LSTMStateTuples)
 
     Example:
-        (LSTMStateTuple(c=[batch_size, 300], h=[batch_size, 300]), LSTMStateTuple(c=[batch_size, 300], h=[batch_size, 300]))
+        [LSTMStateTuple(c=[batch_size, 300], h=[batch_size, 300]), LSTMStateTuple(c=[batch_size, 300], h=[batch_size, 300])]
 
     """
 
     init_states = []
 
     # for each layer, create a tf variable and tile
-    for i, tupl in enumerate(state_size):
+    for i, tupl in enumerate(state_sizes):
         c = tf.get_variable(name+"_c_%d"%i, shape=[1, tupl[0]])
         h = tf.get_variable(name+"_h_%d"%i, shape=[1, tupl[1]])
         c_tiled = tf.tile(c, [batch_size, 1])
         h_tiled = tf.tile(h, [batch_size, 1])
         init_states.append(tf.nn.rnn_cell.LSTMStateTuple(c_tiled, h_tiled))
 
-    return tuple(init_states)
+    return init_states
 
 def _create_rnn_cell(num_units, num_layers, mode):
-    """Create single- or multi-layer RNN cell.
+    """Create a list of RNN cells.
 
     Args:
         num_units: the depth of each unit
@@ -246,7 +380,7 @@ def _create_rnn_cell(num_units, num_layers, mode):
         mode: either tf.contrib.learn.TRAIN/EVAL/INFER
 
     Returns:
-        An 'RNNCell' instance
+        A list of 'RNNCell' instances
     """
 
     cell_list = []
@@ -259,7 +393,4 @@ def _create_rnn_cell(num_units, num_layers, mode):
                                  st_residual=True)
         cell_list.append(single_cell)
 
-    if len(cell_list) == 1:
-        return cell_list[0]
-    else:
-        return tf.nn.rnn_cell.MultiRNNCell(cell_list)
+    return cell_list
