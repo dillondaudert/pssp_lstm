@@ -15,5 +15,6 @@ HPARAMS = tf.contrib.training.HParams(
     max_gradient_norm=0.5,
     num_keep_ckpts=6,
     model="bdrnn",
-    pretrained=True
+    pretrained=True,
+    lm_ckpt="/home/dillon/models/lm_pretrain/lm_model/ckpts/ckpt-1000"
 )
