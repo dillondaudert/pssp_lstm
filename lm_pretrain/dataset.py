@@ -96,6 +96,10 @@ def cpdb_pretrain_parser(record, hparams):
                              0.]])
     inputs = tf.reshape(seq, [-1, hparams.num_features])
     outputs = inputs[:, 0:hparams.num_inp_labels]
+    # reverse direction if this is a backwards lm
+    if hparams.lm_kind == "bw":
+        inputs = tf.reverse(inputs, [0], name="bw_inputs")
+        outputs = tf.reverse(outputs, [0], name="bw_outputs")
     inputs = tf.concat([in_noseq, inputs], 0)
     outputs = tf.concat([outputs, out_noseq], 0)
     seq_len = seq_len + tf.constant(1, dtype=tf.int32)
