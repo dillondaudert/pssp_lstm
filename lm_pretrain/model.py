@@ -46,10 +46,8 @@ class LMModel(object):
         tf.get_variable_scope().set_initializer(initializer)
 
         if hparams.model == "lm":
-            hparams.num_labels = hparams.num_inp_labels
             res = self._build_lm_graph(hparams)
         elif hparams.model == "bdrnn":
-            hparams.num_labels = hparams.num_tgt_labels
             res = self._build_bdrnn_graph(hparams)
 
         # Graph losses
@@ -116,10 +114,10 @@ class LMModel(object):
         direction = hparams.lm_kind
 
         # linear projection to the same dimension as the state size
-        with tf.variable_scope("lm_in", dtype=tf.float32):
-            inputs = tf.layers.dense(inputs=inputs,
-                                     units=hparams.input_proj_size,
-                                     kernel_initializer=tf.glorot_uniform_initializer())
+        #with tf.variable_scope("lm_in", dtype=tf.float32):
+        #    inputs = tf.layers.dense(inputs=inputs,
+        #                             units=hparams.input_proj_size,
+        #                             kernel_initializer=tf.glorot_uniform_initializer())
 
         with tf.variable_scope("lm_rnn", dtype=tf.float32) as lm_rnn:
             with tf.variable_scope(direction, dtype=tf.float32):
@@ -130,7 +128,7 @@ class LMModel(object):
 
                 cells = cells[0]
                 # NOTE: This input shape is hard coded
-                cells.build([None, hparams.input_proj_size])
+                cells.build([None, hparams.num_features]) #hparams.input_proj_size])
                 init_state = _get_initial_state([cells.state_size], tf.shape(inputs)[0], "lm")
                 init_state = init_state[0]
 
@@ -201,10 +199,10 @@ class LMModel(object):
         inputs, tgt_outputs, seq_len = sample
 
         # linear projection to state size
-        with tf.variable_scope("bdrnn_in", dtype=tf.float32):
-            inputs = tf.layers.dense(inputs=inputs,
-                                     units=hparams.input_proj_size,
-                                     kernel_initializer=tf.glorot_uniform_initializer())
+        #with tf.variable_scope("bdrnn_in", dtype=tf.float32):
+        #    inputs = tf.layers.dense(inputs=inputs,
+        #                             units=hparams.input_proj_size,
+        #                             kernel_initializer=tf.glorot_uniform_initializer())
 
         lm_fw_cell = []
         lm_bw_cell = []
@@ -219,14 +217,14 @@ class LMModel(object):
                                                   mode=self.mode)
                     # build the cell so it is in the correct scope
                     # NOTE: this is hard coded
-                    lm_fw_cell[0].build([None, hparams.input_proj_size])
+                    lm_fw_cell[0].build([None, hparams.num_features])#hparams.input_proj_size])
                     lm_init_state_fw = _get_initial_state([lm_fw_cell[0].state_size], tf.shape(inputs)[0], "lm")
                 with tf.variable_scope("bw", dtype=tf.float32):
                     lm_bw_cell = _create_rnn_cell(num_units=hparams.num_units,
                                                   num_layers=1,
                                                   mode=self.mode)
                     # NOTE: this is hard coded
-                    lm_bw_cell[0].build([None, hparams.input_proj_size])
+                    lm_bw_cell[0].build([None, hparams.num_features])#hparams.input_proj_size])
                     lm_init_state_bw = _get_initial_state([lm_bw_cell[0].state_size], tf.shape(inputs)[0], "lm")
 
         with tf.variable_scope("bdrnn", dtype=tf.float32) as bdrnn_scope:
