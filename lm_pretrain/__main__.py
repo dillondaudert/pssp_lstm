@@ -3,7 +3,7 @@
 import argparse as ap
 from pathlib import Path
 from .pretrain import pretrain
-from .hparams import HPARAMS
+from .hparams import hparams
 
 def main():
 
@@ -20,8 +20,30 @@ def main():
                                  be saved")
     parser.add_argument("-l", "--logging", action="store_true",
                            help="toggle to enable tf.summary logs (disabled by default)")
+    parser.add_argument("-m", "--model", type=str, choices=["lm", "bdrnn"], required=True,
+                           help="which kind of model to train")
+    parser.add_argument("--lm_kind", type=str, choices=["fw", "bw"], default="fw",
+                           help="whether to train a forward or backward language model\
+                                   (default: forward)")
+    parser.add_argument("--lm_fw_ckpt", type=str, default="",
+                           help="the path to a pretrained forward language model checkpoint")
+    parser.add_argument("--lm_bw_ckpt", type=str, default="",
+                           help="the path to a pretrained backward language model checkpoint")
 
     args = parser.parse_args()
+
+    HPARAMS = hparams[args.model]
+    HPARAMS.lm_fw_ckpt = args.lm_fw_ckpt
+    HPARAMS.lm_bw_ckpt = args.lm_bw_ckpt
+
+    if args.model == "bdrnn":
+        if (args.lm_fw_ckpt != "" and args.lm_bw_ckpt == "") or (args.lm_fw_ckpt == "" and args.lm_bw_ckpt != ""):
+            print("Both lm_fw_ckpt and lm_bw_ckpt must either be paths or left out. Quitting.")
+            quit()
+        elif args.lm_fw_ckpt != "":
+            HPARAMS.pretrained = True
+    else:
+        HPARAMS.lm_kind = args.lm_kind
 
     # run training
     HPARAMS.logging = args.logging
@@ -30,6 +52,7 @@ def main():
     HPARAMS.logdir = str(logpath.absolute())
     HPARAMS.train_file = str(Path(args.datadir, "cpdb_train.tfrecords").absolute())
     HPARAMS.valid_file = str(Path(args.datadir, "cpdb_valid.tfrecords").absolute())
+
 
     pretrain(HPARAMS)
 
