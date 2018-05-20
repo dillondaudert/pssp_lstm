@@ -45,8 +45,6 @@ def create_dataset(hparams, mode):
     else:
         dataset = dataset.repeat(num_epochs)
 
-    num_labels = hparams.num_tgt_labels if hparams.model == "bdrnn" else hparams.num_inp_labels
-
     dataset = dataset.apply(tf.contrib.data.bucket_by_sequence_length(
         lambda a, b, seq_len: seq_len,
         [50, 150, 250, 350, # buckets
@@ -55,7 +53,7 @@ def create_dataset(hparams, mode):
          batch_size, batch_size, batch_size, # the same batch size
          batch_size, batch_size],
         padded_shapes=(tf.TensorShape([None, hparams.num_features]),
-                       tf.TensorShape([None, num_labels]),
+                       tf.TensorShape([None, hparams.num_labels]),
                        tf.TensorShape([]))))
 
 
@@ -95,7 +93,7 @@ def cpdb_pretrain_parser(record, hparams):
                              0., 0., 0., 0., 0., 0., 0.,
                              0.]])
     inputs = tf.reshape(seq, [-1, hparams.num_features])
-    outputs = inputs[:, 0:hparams.num_inp_labels]
+    outputs = inputs[:, 0:hparams.num_labels]
     # reverse direction if this is a backwards lm
     if hparams.lm_kind == "bw":
         inputs = tf.reverse(inputs, [0], name="bw_inputs")
