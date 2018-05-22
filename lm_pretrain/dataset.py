@@ -122,6 +122,6 @@ def cpdb_parser(record, hparams):
     seq = tf.sparse_tensor_to_dense(parsed["seq_data"])
     label = tf.sparse_tensor_to_dense(parsed["label_data"])
     seq = tf.reshape(seq, [-1, hparams.num_features])
-    tgt_outputs = tf.reshape(label, [-1, hparams.num_tgt_labels])
+    tgt_outputs = tf.reshape(label, [-1, hparams.num_labels])
 
     return seq, tgt_outputs, seq_len
