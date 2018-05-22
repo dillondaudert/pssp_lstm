@@ -14,7 +14,7 @@ hparams = {
             batch_size=50,
             num_epochs=250,
             max_gradient_norm=0.5,
-            num_keep_ckpts=11,
+            num_keep_ckpts=9,
             model="bdrnn"),
    "lm": tf.contrib.training.HParams(
             num_features=43,
@@ -27,7 +27,7 @@ hparams = {
             batch_size=50,
             num_epochs=250,
             max_gradient_norm=0.5,
-            num_keep_ckpts=11,
+            num_keep_ckpts=9,
             model="lm"),
    "bdrnn_large": tf.contrib.training.HParams(
             num_features=43,
@@ -40,7 +40,7 @@ hparams = {
             batch_size=50,
             num_epochs=250,
             max_gradient_norm=0.5,
-            num_keep_ckpts=11,
+            num_keep_ckpts=9,
             model="bdrnn"),
    "lm_large": tf.contrib.training.HParams(
             num_features=43,
@@ -53,6 +53,6 @@ hparams = {
             batch_size=50,
             num_epochs=250,
             max_gradient_norm=0.5,
-            num_keep_ckpts=11,
+            num_keep_ckpts=9,
             model="lm")
    }
