@@ -22,6 +22,8 @@ def main():
                            help="toggle to enable tf.summary logs (disabled by default)")
     parser.add_argument("-m", "--model", type=str, choices=["lm", "bdrnn"], required=True,
                            help="which kind of model to train")
+    parser.add_argument("--large", action="store_true", default=False,
+                           help="toggle whether to use the large version of the model")
     parser.add_argument("--lm_kind", type=str, choices=["fw", "bw"], default="fw",
                            help="whether to train a forward or backward language model\
                                    (default: forward)")
@@ -32,9 +34,11 @@ def main():
 
     args = parser.parse_args()
 
-    HPARAMS = hparams[args.model]
+    model_hparams = args.model if not args.large else args.model+"_large"
+    HPARAMS = hparams[model_hparams]
     HPARAMS.lm_fw_ckpt = args.lm_fw_ckpt
     HPARAMS.lm_bw_ckpt = args.lm_bw_ckpt
+    print("Model: %s, HPARAMS: %s" % (args.model, model_hparams))
 
     if args.model == "bdrnn":
         if (args.lm_fw_ckpt != "" and args.lm_bw_ckpt == "") or (args.lm_fw_ckpt == "" and args.lm_bw_ckpt != ""):
