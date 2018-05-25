@@ -227,6 +227,23 @@ class LMModel(object):
                     lm_bw_cell[0].build([None, hparams.num_features])#hparams.input_proj_size])
                     lm_init_state_bw = _get_initial_state([lm_bw_cell[0].state_size], tf.shape(inputs)[0], "lm")
 
+                lm_outputs, lm_states = tf.nn.bidirectional_dynamic_rnn(lm_fw_cell[0],
+                                                                        lm_bw_cell[0],
+                                                                        inputs,
+                                                                        sequence_length=seq_len,
+                                                                        initial_state_fw=lm_init_state_fw[0],
+                                                                        initial_state_bw=lm_init_state_bw[0],
+                                                                        dtype=tf.float32)
+                # optionally fix the LM weights
+                if hparams.fixed_lm:
+                    print("Fixing pretrained language models.")
+                    lm_outputs = tf.stop_gradient(lm_outputs)
+                    lm_outputs = tf.concat([lm_outputs[0], lm_outputs[1], inputs], axis=-1)
+                else:
+                    lm_outputs = tf.concat(lm_outputs, axis=-1)
+
+
+
         with tf.variable_scope("bdrnn", dtype=tf.float32) as bdrnn_scope:
             # create bdrnn
             with tf.variable_scope("fw", dtype=tf.float32):
@@ -245,17 +262,17 @@ class LMModel(object):
 
                 init_state_bw = _get_initial_state([cell.state_size for cell in bw_cells],
                                                    tf.shape(inputs)[0], "initial_state_bw")
-
-            fw_cells = lm_fw_cell + fw_cells
-            bw_cells = lm_bw_cell + bw_cells
-            init_state_fw = lm_init_state_fw + init_state_fw
-            init_state_bw = lm_init_state_bw + init_state_bw
+            # NOTE: this is commented because the lm cells and states are separated now
+            #fw_cells = lm_fw_cell + fw_cells
+            #bw_cells = lm_bw_cell + bw_cells
+            #init_state_fw = lm_init_state_fw + init_state_fw
+            #init_state_bw = lm_init_state_bw + init_state_bw
 
             # run bdrnn
             combined_outputs, output_state_fw, output_state_bw = \
                     tf.contrib.rnn.stack_bidirectional_dynamic_rnn(cells_fw=fw_cells,
                                                                    cells_bw=bw_cells,
-                                                                   inputs=inputs,
+                                                                   inputs=lm_outputs,
                                                                    sequence_length=seq_len,
                                                                    initial_states_fw=init_state_fw,
                                                                    initial_states_bw=init_state_bw,
