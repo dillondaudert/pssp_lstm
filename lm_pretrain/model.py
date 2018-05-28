@@ -21,9 +21,9 @@ def create_model(hparams, mode):
         with tf.name_scope("input_pipe"):
             dataset = create_dataset(hparams, mode)
             iterator = dataset.make_initializable_iterator()
-        model = LMModel(hparams=hparams,
-                        iterator=iterator,
-                        mode=mode)
+        model = LMandBDRNNModel(hparams=hparams,
+                                iterator=iterator,
+                                mode=mode)
 
     sess = tf.Session(graph=graph)
 
@@ -32,7 +32,7 @@ def create_model(hparams, mode):
 
     return modeltuple
 
-class LMModel(object):
+class LMandBDRNNModel(object):
 
     def __init__(self, hparams, iterator, mode, scope=None):
         self.hparams = hparams

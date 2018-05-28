@@ -35,7 +35,7 @@ def pretrain(hparams):
 
     train_tuple.session.run([initializer])
 
-    # TODO: move this to LMModel.restore or some such function
+    # TODO: move this to LMandBDRNNModel.restore or some such function
     # restore the lm parameters
     if hparams.lm_fw_ckpt != "" and hparams.model == "bdrnn":
         train_tuple.model.lm_fw_saver.restore(train_tuple.session, hparams.lm_fw_ckpt)
