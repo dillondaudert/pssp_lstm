@@ -21,6 +21,7 @@ includes feed forward networks between the long short term memory cells, a path 
 - **__main__.py**: Driver/command line tool
 
 # User Guide
+*Note: all bash commands are assumed to be executed from this module's parent directory*
 
 ## Requirements
 
