@@ -36,6 +36,9 @@ def main():
                            help="the path to a pretrained forward language model checkpoint")
     tr_parser.add_argument("--lm_bw_ckpt", type=str, default="",
                            help="the path to a pretrained backward language model checkpoint")
+    tr_parser.add_argument("--fixed_lm", action="store_true",
+                           help="this flag indicates that the pretrained models should be\
+                                 fixed during fine-tuning."
     tr_parser.set_defaults(entry="train")
 
     ev_parser = subparsers.add_parser("evaluate", help="Evaluate a trained model")
@@ -72,6 +75,7 @@ def main():
 
         # run training
         HPARAMS.logging = args.logging
+        HPARAMS.fixed_lm = args.fixed_lm
 
         logpath = Path(args.logdir)
         HPARAMS.logdir = str(logpath.absolute())
