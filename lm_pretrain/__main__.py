@@ -38,7 +38,7 @@ def main():
                            help="the path to a pretrained backward language model checkpoint")
     tr_parser.add_argument("--fixed_lm", action="store_true",
                            help="this flag indicates that the pretrained models should be\
-                                 fixed during fine-tuning."
+                                 fixed during fine-tuning.")
     tr_parser.set_defaults(entry="train")
 
     ev_parser = subparsers.add_parser("evaluate", help="Evaluate a trained model")
@@ -52,6 +52,9 @@ def main():
 
     ev_parser.add_argument("--large", action="store_true", default=False,
                            help="toggle whether to use the large version of the model")
+    ev_parser.add_argument("--fixed_lm", action="store_true",
+                           help="this flag indicates that the pretrained models should be\
+                                 fixed during fine-tuning.")
 
     ev_parser.set_defaults(entry="evaluate")
 
