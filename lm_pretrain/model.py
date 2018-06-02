@@ -238,7 +238,14 @@ class LMandBDRNNModel(object):
                 if hparams.fixed_lm:
                     print("Fixing pretrained language models.")
                     lm_outputs = tf.stop_gradient(lm_outputs)
-                    lm_outputs = tf.concat([lm_outputs[0], lm_outputs[1], inputs], axis=-1)
+                    lm_outputs = tf.concat([lm_outputs[0], lm_outputs[1]], axis=-1)
+                    lm_outputs = tf.layers.dense(lm_outputs,
+                                                 20,
+                                                 kernel_initializer=tf.glorot_uniform_initializer())
+                    lm_outputs = tf.concat([lm_outputs, inputs], axis=-1)
+
+
+                    #lm_outputs = tf.concat([lm_outputs[0], lm_outputs[1], inputs], axis=-1)
                 else:
                     lm_outputs = tf.concat(lm_outputs, axis=-1)
 
