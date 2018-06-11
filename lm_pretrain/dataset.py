@@ -2,6 +2,8 @@
 
 from pathlib import Path
 import tensorflow as tf, numpy as np
+from .parsers import cpdb_parser, cUR50_parser
+from .lookup import create_lookup_table
 
 def create_dataset(hparams, mode):
     """
@@ -28,16 +30,65 @@ def create_dataset(hparams, mode):
         quit()
 
     if hparams.model == "lm":
-        parser = cpdb_pretrain_parser
+        parser = cUR50_parser
     elif hparams.model == "bdrnn":
         parser = cpdb_parser
 
     dataset = tf.data.TFRecordDataset(input_file)
 
     # parse the records
+    # NOTE: id, len, seq: str, phyche(, pssm, ss: str)
     dataset = dataset.map(lambda x:parser(x, hparams), num_parallel_calls=4)
 
-    # perform the appropriate transformations and return
+    # create lookup tables for strings
+    hparams.prot_lookup_table = create_lookup_table("prot")
+    hparams.prot_reverse_lookup_table = create_lookup_table("prot", reverse=True)
+    hparams.struct_lookup_table = create_lookup_table("struct")
+    hparams.struct_reverse_lookup_table = create_lookup_table("struct", reverse=True)
+
+    # convert seq / ss strings to one-hots
+    if hparams.model == "lm":
+        dataset = dataset.map(
+                lambda id, seq_len, seq, phyche: \
+                        (id, seq_len, tf.string_split([seq], delimiter="").values, phyche),
+                num_parallel_calls=2)
+        dataset = dataset.map(
+                lambda id, seq_len, seq, phyche: \
+                        (id, seq_len, tf.cast(hparams.prot_lookup_table.lookup(seq), tf.int32), phyche),
+                num_parallel_calls=2)
+
+        if hparams.lm_kind == "bw":
+            # reverse the sequence
+            dataset = dataset.map(
+                    lambda id, seq_len, seq, phyche: (id, seq_len, tf.reverse(seq, [0])),
+                    num_parallel_calls=2)
+
+        # NOTE: the LM targets are the sequence, shifted 1 to the right, with an EOS token appended
+        dataset = dataset.map(
+                lambda id, seq_len, seq, phyche: \
+                        (id, seq_len, seq, phyche, tf.zeros([1, 1]), tf.concat((seq[1:], [eos_id]), 0)),
+                num_parallel_calls=4)
+
+    else:
+        dataset = dataset.map(
+                lambda id, seq_len, seq, phyche, pssm, ss: \
+                        (id,
+                         seq_len,
+                         tf.string_split([seq], delimiter="").values,
+                         phyche,
+                         pssm,
+                         tf.string_split([ss], delimiter="").values),
+                num_parallel_calls=2)
+        dataset = dataset.map(
+                lambda id, seq_len, seq, phyche, pssm, ss: \
+                        (id,
+                         seq_len,
+                         tf.cast(hparams.prot_lookup_table.lookup(seq), tf.int32),
+                         phyche,
+                         pssm,
+                         tf.cast(hparams.struct_lookup_table.lookup(ss), tf.int32)),
+                num_parallel_calls=2)
+
     dataset = dataset.cache()
 
     if shuffle:
@@ -45,83 +96,29 @@ def create_dataset(hparams, mode):
     else:
         dataset = dataset.repeat(num_epochs)
 
+    # determine pssm tensorshape
+    if hparams.model == "lm":
+        pssm_shape = tf.TensorShape([])
+    elif hparams.model == "bdrnn":
+        pssm_shape = tf.TensorShape([None, 20])
+
     dataset = dataset.apply(tf.contrib.data.bucket_by_sequence_length(
-        lambda a, b, seq_len: seq_len,
+        lambda id, seq_len, seq, phyche, pssm, tar: seq_len,
         [50, 150, 250, 350, # buckets
          450, 550, 650],
         [batch_size, batch_size, batch_size, # all buckets have the
          batch_size, batch_size, batch_size, # the same batch size
          batch_size, batch_size],
-        padded_shapes=(tf.TensorShape([None, hparams.num_features]),
-                       tf.TensorShape([None, hparams.num_labels]),
-                       tf.TensorShape([]))))
-
-
-
+        padded_shapes=(tf.TensorShape([]), # id
+                       tf.TensorShape([]), # len
+                       tf.TensorShape([None]), # seq
+                       tf.TensorShape([None, hparams.num_phyche_features]), # phyche
+                       pssm_shape, # pssm
+                       tf.TensorShape([None]) # target (ss or seq)
+                       )))
 
     # prefetch on CPU
     dataset = dataset.prefetch(2)
 
     return dataset
 
-def cpdb_pretrain_parser(record, hparams):
-    """
-    Parse a CPDB tfrecord Record into a tuple of tensors.
-    """
-
-    keys_to_features = {
-        "seq_len": tf.FixedLenFeature([], tf.int64),
-        "seq_data": tf.VarLenFeature(tf.float32),
-        "label_data": tf.VarLenFeature(tf.float32),
-        }
-
-    parsed = tf.parse_single_example(record, keys_to_features)
-
-    seq_len = parsed["seq_len"]
-    seq_len = tf.cast(seq_len, tf.int32)
-    seq = tf.sparse_tensor_to_dense(parsed["seq_data"])
-    # prepend and append 'NoSeq' tokens for next step prediction
-    out_noseq = tf.constant([[0., 0., 0., 0., 0., 0., 0.,
-                              0., 0., 0., 0., 0., 0., 0.,
-                              0., 0., 0., 0., 0., 0., 0.,
-                              1.]])
-    in_noseq = tf.constant([[0., 0., 0., 0., 0., 0., 0.,
-                             0., 0., 0., 0., 0., 0., 0.,
-                             0., 0., 0., 0., 0., 0., 0.,
-                             1., 0., 0., 0., 0., 0., 0.,
-                             0., 0., 0., 0., 0., 0., 0.,
-                             0., 0., 0., 0., 0., 0., 0.,
-                             0.]])
-    inputs = tf.reshape(seq, [-1, hparams.num_features])
-    outputs = inputs[:, 0:hparams.num_labels]
-    # reverse direction if this is a backwards lm
-    if hparams.lm_kind == "bw":
-        inputs = tf.reverse(inputs, [0], name="bw_inputs")
-        outputs = tf.reverse(outputs, [0], name="bw_outputs")
-    inputs = tf.concat([in_noseq, inputs], 0)
-    outputs = tf.concat([outputs, out_noseq], 0)
-    seq_len = seq_len + tf.constant(1, dtype=tf.int32)
-
-    return inputs, outputs, seq_len
-
-def cpdb_parser(record, hparams):
-    """
-    Parse a CPDB tfrecord Record into a tuple of tensors.
-    """
-
-    keys_to_features = {
-        "seq_len": tf.FixedLenFeature([], tf.int64),
-        "seq_data": tf.VarLenFeature(tf.float32),
-        "label_data": tf.VarLenFeature(tf.float32),
-        }
-
-    parsed = tf.parse_single_example(record, keys_to_features)
-
-    seq_len = parsed["seq_len"]
-    seq_len = tf.cast(seq_len, tf.int32)
-    seq = tf.sparse_tensor_to_dense(parsed["seq_data"])
-    label = tf.sparse_tensor_to_dense(parsed["label_data"])
-    seq = tf.reshape(seq, [-1, hparams.num_features])
-    tgt_outputs = tf.reshape(label, [-1, hparams.num_labels])
-
-    return seq, tgt_outputs, seq_len
