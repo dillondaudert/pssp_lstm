@@ -23,14 +23,14 @@ def cpdb_parser(record, hparams):
     dssp_id = tf.cast(dssp_id, tf.string)
     seq_len = parsed["seq_len"]
     seq_len = tf.cast(seq_len, tf.int32)
-    seq = parsed["seq"]
-    seq = tf.cast(seq, tf.string)
+    seq = tf.cast(parsed["seq"], tf.string)
+    seq = tf.sparse_tensor_to_dense(seq)
     seq_phyche = tf.sparse_tensor_to_dense(parsed["seq_phyche"])
     seq_phyche = tf.reshape(seq_phyche, [-1, hparams.num_phyche_features])
     seq_pssm = tf.sparse_tensor_to_dense(parsed["seq_pssm"])
     seq_pssm = tf.reshape(seq_pssm, [-1, 20])
-    ss = parsed["ss"]
-    ss = tf.cast(ss, tf.string)
+    ss = tf.cast(parsed["ss"], tf.string)
+    ss = tf.sparse_tensor_to_dense(ss)
 
     return dssp_id, seq_len, seq, seq_phyche, seq_pssm, ss
 
@@ -53,8 +53,8 @@ def cUR50_parser(record, hparams):
     uniref_id = tf.cast(uniref_id, tf.string)
     seq_len = parsed["seq_len"]
     seq_len = tf.cast(seq_len, tf.int32)
-    seq = parsed["seq"]
-    seq = tf.cast(seq, tf.string)
+    seq = tf.cast(parsed["seq"], tf.string)
+    seq = tf.sparse_tensor_to_dense(seq)
     seq_phyche = tf.sparse_tensor_to_dense(parsed["seq_phyche"])
     seq_phyche = tf.reshape(seq_phyche, [-1, hparams.num_phyche_features])
 

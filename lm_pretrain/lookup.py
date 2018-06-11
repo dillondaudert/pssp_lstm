@@ -1,6 +1,7 @@
 """Utilities for protein and structure strings."""
 
 import tensorflow as tf
+from tensorflow.python.ops import lookup_ops
 
 
 PROT_ALPHABET = ["A", "C", "D", "E", "F", "G", "H", "I", "K", "L", "M", "N",
@@ -26,9 +27,9 @@ def create_lookup_table(vocab, reverse=False):
         raise ValueError("Unrecognized value for vocab: %s" % (vocab))
 
     if not reverse:
-        table = tf.contrib.lookup.index_table_from_tensor(tf.constant(alphabet))
+        table = lookup_ops.index_table_from_tensor(tf.constant(alphabet))
     else:
-        table = tf.contrib.lookup.index_to_string_table_from_tensor(tf.constant(alphabet))
+        table = lookup_ops.index_to_string_table_from_tensor(tf.constant(alphabet))
 
     return table
 
