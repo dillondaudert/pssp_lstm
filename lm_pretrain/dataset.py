@@ -45,29 +45,32 @@ def create_dataset(hparams, mode):
     hparams.prot_reverse_lookup_table = create_lookup_table("prot", reverse=True)
     hparams.struct_lookup_table = create_lookup_table("struct")
     hparams.struct_reverse_lookup_table = create_lookup_table("struct", reverse=True)
+    prot_size = tf.cast(hparams.prot_lookup_table.size(), tf.int32)
+    struct_size = tf.cast(hparams.struct_lookup_table.size(), tf.int32)
 
-    # convert seq / ss strings to one-hots
     if hparams.model == "lm":
+        # split characters
         dataset = dataset.map(
                 lambda id, seq_len, seq, phyche: \
                         (id, seq_len, tf.string_split([seq], delimiter="").values, phyche),
-                num_parallel_calls=2)
+                num_parallel_calls=4)
+        # convert characters to integers
         dataset = dataset.map(
                 lambda id, seq_len, seq, phyche: \
                         (id, seq_len, tf.cast(hparams.prot_lookup_table.lookup(seq), tf.int32), phyche),
-                num_parallel_calls=2)
-
-        if hparams.lm_kind == "bw":
-            # reverse the sequence
-            dataset = dataset.map(
-                    lambda id, seq_len, seq, phyche: (id, seq_len, tf.reverse(seq, [0])),
-                    num_parallel_calls=2)
-
-        # NOTE: the LM targets are the sequence, shifted 1 to the right, with an EOS token appended
-        eos_id = tf.cast(hparams.prot_lookup_table.lookup(tf.constant("EOS")), dtype=tf.int32)
+                num_parallel_calls=4)
+        # convert integers to one-hots
         dataset = dataset.map(
                 lambda id, seq_len, seq, phyche: \
-                        (id, seq_len, seq, phyche, tf.zeros([1, 1]), tf.concat((seq[1:], [eos_id]), 0)),
+                        (id, 
+                         seq_len, 
+                         tf.nn.embedding_lookup(tf.eye(prot_size), seq),
+                         phyche),
+                num_parallel_calls=4)
+        # target is seq itself
+        dataset = dataset.map(
+                lambda id, seq_len, seq, phyche: \
+                        (id, seq_len, seq, phyche, tf.constant(-1), seq),
                 num_parallel_calls=4)
 
     else:
@@ -79,7 +82,7 @@ def create_dataset(hparams, mode):
                          phyche,
                          pssm,
                          tf.string_split([ss], delimiter="").values),
-                num_parallel_calls=2)
+                num_parallel_calls=4)
         dataset = dataset.map(
                 lambda id, seq_len, seq, phyche, pssm, ss: \
                         (id,
@@ -88,8 +91,19 @@ def create_dataset(hparams, mode):
                          phyche,
                          pssm,
                          tf.cast(hparams.struct_lookup_table.lookup(ss), tf.int32)),
-                num_parallel_calls=2)
-
+                num_parallel_calls=4)
+        # convert integers to one-hots
+        dataset = dataset.map(
+                lambda id, seq_len, seq, phyche, pssm, ss: \
+                        (id, 
+                         seq_len, 
+                         tf.nn.embedding_lookup(tf.eye(prot_size), seq),
+                         phyche,
+                         pssm,
+                         tf.nn.embedding_lookup(tf.eye(struct_size), ss)),
+                num_parallel_calls=4)
+        
+    
     dataset = dataset.cache()
 
     if shuffle:
@@ -100,8 +114,10 @@ def create_dataset(hparams, mode):
     # determine pssm tensorshape
     if hparams.model == "lm":
         pssm_shape = tf.TensorShape([])
-    elif hparams.model == "bdrnn":
-        pssm_shape = tf.TensorShape([None, 20])
+        target_shape = tf.TensorShape([None, 23])
+    else: #if hparams.model == "bdrnn":
+        pssm_shape = tf.TensorShape([None, 21])
+        target_shape = tf.TensorShape([None, 10])
 
     dataset = dataset.apply(tf.contrib.data.bucket_by_sequence_length(
         lambda id, seq_len, seq, phyche, pssm, tar: seq_len,
@@ -112,10 +128,10 @@ def create_dataset(hparams, mode):
          batch_size, batch_size],
         padded_shapes=(tf.TensorShape([]), # id
                        tf.TensorShape([]), # len
-                       tf.TensorShape([None]), # seq
+                       tf.TensorShape([None, 23]), # seq
                        tf.TensorShape([None, hparams.num_phyche_features]), # phyche
                        pssm_shape, # pssm
-                       tf.TensorShape([None]) # target (ss or seq)
+                       target_shape, # target (ss or seq)
                        )))
 
     # prefetch on CPU
