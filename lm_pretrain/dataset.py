@@ -64,6 +64,7 @@ def create_dataset(hparams, mode):
                     num_parallel_calls=2)
 
         # NOTE: the LM targets are the sequence, shifted 1 to the right, with an EOS token appended
+        eos_id = tf.cast(hparams.prot_lookup_table.lookup(tf.constant("EOS")), dtype=tf.int32)
         dataset = dataset.map(
                 lambda id, seq_len, seq, phyche: \
                         (id, seq_len, seq, phyche, tf.zeros([1, 1]), tf.concat((seq[1:], [eos_id]), 0)),
