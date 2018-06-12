@@ -9,28 +9,25 @@ def cpdb_parser(record, hparams):
     """
 
     keys_to_features = {
-        "dssp_id": tf.VarLenFeature(tf.string),
+        "dssp_id": tf.FixedLenFeature([], tf.string),
         "seq_len": tf.FixedLenFeature([], tf.int64),
-        "seq": tf.VarLenFeature(tf.string),
+        "seq": tf.FixedLenFeature([], tf.string),
         "seq_phyche": tf.VarLenFeature(tf.float32),
         "seq_pssm": tf.VarLenFeature(tf.float32),
-        "ss": tf.VarLenFeature(tf.string),
+        "ss": tf.FixedLenFeature([], tf.string),
         }
 
     parsed = tf.parse_single_example(record, keys_to_features)
 
     dssp_id = parsed["dssp_id"]
-    dssp_id = tf.cast(dssp_id, tf.string)
     seq_len = parsed["seq_len"]
     seq_len = tf.cast(seq_len, tf.int32)
-    seq = tf.cast(parsed["seq"], tf.string)
-    seq = tf.sparse_tensor_to_dense(seq)
+    seq = parsed["seq"]
     seq_phyche = tf.sparse_tensor_to_dense(parsed["seq_phyche"])
     seq_phyche = tf.reshape(seq_phyche, [-1, hparams.num_phyche_features])
     seq_pssm = tf.sparse_tensor_to_dense(parsed["seq_pssm"])
     seq_pssm = tf.reshape(seq_pssm, [-1, 20])
-    ss = tf.cast(parsed["ss"], tf.string)
-    ss = tf.sparse_tensor_to_dense(ss)
+    ss = parsed["ss"]
 
     return dssp_id, seq_len, seq, seq_phyche, seq_pssm, ss
 
@@ -41,20 +38,18 @@ def cUR50_parser(record, hparams):
     """
 
     keys_to_features = {
-        "uniref_id": tf.VarLenFeature(tf.string),
+        "uniref_id": tf.FixedLenFeature([], tf.string),
         "seq_len": tf.FixedLenFeature([], tf.int64),
-        "seq": tf.VarLenFeature(tf.string),
+        "seq": tf.FixedLenFeature([], tf.string),
         "seq_phyche": tf.VarLenFeature(tf.float32),
         }
 
     parsed = tf.parse_single_example(record, keys_to_features)
 
     uniref_id = parsed["uniref_id"]
-    uniref_id = tf.cast(uniref_id, tf.string)
     seq_len = parsed["seq_len"]
     seq_len = tf.cast(seq_len, tf.int32)
-    seq = tf.cast(parsed["seq"], tf.string)
-    seq = tf.sparse_tensor_to_dense(seq)
+    seq = parsed["seq"]
     seq_phyche = tf.sparse_tensor_to_dense(parsed["seq_phyche"])
     seq_phyche = tf.reshape(seq_phyche, [-1, hparams.num_phyche_features])
 
