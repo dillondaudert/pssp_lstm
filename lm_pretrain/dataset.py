@@ -133,6 +133,11 @@ def create_dataset(hparams, mode):
                        pssm_shape, # pssm
                        target_shape, # target (ss or seq)
                        )))
+    
+    # map to (x, y) tuple for Keras comformability
+    dataset = dataset.map(lambda id, seq_len, seq, phyche, pssm, tar: \
+                          ((id, seq_len, seq, phyche, pssm), 
+                          tar))
 
     # prefetch on CPU
     dataset = dataset.prefetch(2)
