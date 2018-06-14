@@ -6,78 +6,59 @@ from tensorflow.keras.layers import Input, LSTMCell, RNN, Dense, concatenate, Ma
 from tensorflow.keras.models import Model
 from .dataset import create_dataset
 
-def lm_model(hparams):
+def bdrnn_model(hparams):
 
     # create a bidirectional language model
     seq_id = Input(shape=tf.TensorShape([]))
     seq_lens = Input(shape=tf.TensorShape([]))
     seq_in = Input(shape=(None, 23))
     phyche_in = Input(shape=(None, hparams.num_phyche_features))
-    pssm_in = Input(shape=tf.TensorShape([])) # there are no profiles for the LM
+    pssm_in = Input(shape=(None, 21))
 
+    # mask out zeros
     seq_in_mask = Masking(mask_value=0.)(seq_in)
     phyche_in_mask = Masking(mask_value=0.)(phyche_in)
-
-    # amino acid embeddings
-    embed = Dense(units=10, use_bias=False, name="embed")(seq_in_mask)
-
-    # concatenate embeddings and phyche
-    x = concatenate([embed, phyche_in_mask])
-
-    fw_cells = [LSTMCell(units=hparams.num_units) for _ in range(hparams.num_layers)]
-    bw_cells = [LSTMCell(units=hparams.num_units) for _ in range(hparams.num_layers)]
-
-    fw_out = RNN(fw_cells, return_sequences=True)(x)
-    bw_out = RNN(bw_cells, return_sequences=True, go_backwards=True)(x)
-    rnn_out = concatenate([fw_out, bw_out])
-
-    dense1 = Dense(units=200, activation="relu")(rnn_out)
-    dense2 = Dense(units=100, activation="relu")(dense1)
-
-    lm_out = Dense(units=23, activation="softmax")(dense2)
-
-    models = {"lm": Model(inputs=[seq_id, seq_lens, seq_in, phyche_in, pssm_in], 
-                          outputs=[lm_out]),
-              "pre_lm": Model(inputs=[seq_in, phyche_in], 
-                              outputs=[embed, dense2])}
-    return models
-
-def bdrnn_model(hparams, lm_hparams):
-    
-    # create a bidirectional language model
-    seq_id = Input(shape=tf.TensorShape([]))
-    seq_lens = Input(shape=tf.TensorShape([]))
-    seq_in = Input(shape=(None, 23))
-    phyche_in = Input(shape=(None, hparams.num_phyche_features))
-    pssm_in = Input(shape=(None, 21)) 
-    
-    # create the lm
-    pre_lm = lm_model(lm_hparams)["pre_lm"]
-    lm_embed, lm_dense2 = pre_lm([seq_in, phyche_in])
-    
-    # mask out zeros
-    phyche_in_mask = Masking(mask_value=0.)(phyche_in)
     pssm_in_mask = Masking(mask_value=0.)(pssm_in)
-    
-    # create inputs to rnn
-    x = concatenate([lm_embed, phyche_in_mask, pssm_in_mask, lm_dense2])
-    
+
+    # create the lm
+    # TODO: the LM inputs need to have SOS and EOS pre/appended
+    embed = Dense(units=10, use_bias=False, name="embed")(seq_in_mask)
+    lm_x = concatenate([embed, phyche_in_mask])
+
+    fw_cells = [LSTMCell(units=hparams.lm_num_units) for i in range(hparams.lm_num_layers)]
+    bw_cells = [LSTMCell(units=hparams.lm_num_units) for i in range(hparams.lm_num_layers)]
+
+    lm_fw_out = RNN(fw_cells, return_sequences=True, name="lm_fw")(lm_x)
+    lm_bw_out = RNN(bw_cells, return_sequences=True, name="lm_bw", go_backwards=True)(lm_x)
+    lm_rnn_out = concatenate([lm_fw_out, lm_bw_out])
+
+    lm_dense1 = Dense(units=200, activation="relu", name="lm_dense1")(lm_rnn_out)
+    lm_dense2 = Dense(units=100, activation="relu", name="lm_dense2")(lm_dense1)
+
+    # the language model output
+    lm_out = Dense(units=23, activation="softmax", name="lm_out")(lm_dense2)
+
+    # --------
+
+    # create inputs to bdrnn
+    x = concatenate([embed, phyche_in_mask, pssm_in_mask, lm_dense2])
+
     fw_cells = [LSTMCell(units=hparams.num_units) for _ in range(hparams.num_layers)]
     bw_cells = [LSTMCell(units=hparams.num_units) for _ in range(hparams.num_layers)]
 
     fw_out = RNN(fw_cells, return_sequences=True)(x)
     bw_out = RNN(bw_cells, return_sequences=True, go_backwards=True)(x)
     rnn_out = concatenate([fw_out, bw_out])
-    
+
     dense1 = Dense(units=100, activation="relu")(rnn_out)
     dense2 = Dense(units=50, activation="relu")(dense1)
 
     out = Dense(units=10, activation="softmax")(dense2)
-    
+
     return Model(inputs=[seq_id, seq_lens, seq_in, phyche_in, pssm_in],
                  outputs=[out])
-    
-    
+
+
 
 if __name__ == "__main__":
     hparams = tf.contrib.training.HParams(
@@ -101,14 +82,14 @@ if __name__ == "__main__":
     # set session
     sess = tf.Session()
     tf.keras.backend.set_session(sess)
-    
+
     train_dataset = create_dataset(hparams, tf.contrib.learn.ModeKeys.TRAIN)
     valid_dataset = create_dataset(hparams, tf.contrib.learn.ModeKeys.EVAL)
     test_dataset = create_dataset(hparams, tf.contrib.learn.ModeKeys.EVAL)
 
     # initialize tables
     sess.run([tf.tables_initializer()])
-    
+
     model = bdrnn_model(hparams, lm_hparams)
     model.summary()
 
@@ -121,7 +102,7 @@ if __name__ == "__main__":
               steps_per_epoch=hparams.steps_per_epoch,
               validation_data=valid_dataset,
               validation_steps=hparams.validation_steps)
-    
+
     print(model.predict(x=test_dataset, steps=1))
 
-    
+
