@@ -19,7 +19,7 @@ def lm_model(hparams):
     phyche_in_mask = Masking(mask_value=0.)(phyche_in)
 
     # amino acid embeddings
-    embed = Dense(units=10, use_bias=False)(seq_in_mask)
+    embed = Dense(units=10, use_bias=False, name="embed")(seq_in_mask)
 
     # concatenate embeddings and phyche
     x = concatenate([embed, phyche_in_mask])
@@ -36,36 +36,81 @@ def lm_model(hparams):
 
     lm_out = Dense(units=23, activation="softmax")(dense2)
 
-    model = Model(inputs=[seq_id, seq_lens, seq_in, phyche_in, pssm_in], outputs=[lm_out])
-    return model
+    models = {"lm": Model(inputs=[seq_id, seq_lens, seq_in, phyche_in, pssm_in], 
+                          outputs=[lm_out]),
+              "pre_lm": Model(inputs=[seq_in, phyche_in], 
+                              outputs=[embed, dense2])}
+    return models
+
+def bdrnn_model(hparams, lm_hparams):
+    
+    # create a bidirectional language model
+    seq_id = Input(shape=tf.TensorShape([]))
+    seq_lens = Input(shape=tf.TensorShape([]))
+    seq_in = Input(shape=(None, 23))
+    phyche_in = Input(shape=(None, hparams.num_phyche_features))
+    pssm_in = Input(shape=(None, 21)) 
+    
+    # create the lm
+    pre_lm = lm_model(lm_hparams)["pre_lm"]
+    lm_embed, lm_dense2 = pre_lm([seq_in, phyche_in])
+    
+    # mask out zeros
+    phyche_in_mask = Masking(mask_value=0.)(phyche_in)
+    pssm_in_mask = Masking(mask_value=0.)(pssm_in)
+    
+    # create inputs to rnn
+    x = concatenate([lm_embed, phyche_in_mask, pssm_in_mask, lm_dense2])
+    
+    fw_cells = [LSTMCell(units=hparams.num_units) for _ in range(hparams.num_layers)]
+    bw_cells = [LSTMCell(units=hparams.num_units) for _ in range(hparams.num_layers)]
+
+    fw_out = RNN(fw_cells, return_sequences=True)(x)
+    bw_out = RNN(bw_cells, return_sequences=True, go_backwards=True)(x)
+    rnn_out = concatenate([fw_out, bw_out])
+    
+    dense1 = Dense(units=100, activation="relu")(rnn_out)
+    dense2 = Dense(units=50, activation="relu")(dense1)
+
+    out = Dense(units=10, activation="softmax")(dense2)
+    
+    return Model(inputs=[seq_id, seq_lens, seq_in, phyche_in, pssm_in],
+                 outputs=[out])
+    
+    
 
 if __name__ == "__main__":
     hparams = tf.contrib.training.HParams(
         num_phyche_features=7,
-        train_file="/home/dillon/data/cUR50/cUR50_train.tfrecords",
-        valid_file="/home/dillon/data/cUR50/cUR50_valid.tfrecords",
+        train_file="/home/dillon/data/cpdb2/cpdb_train.tfrecords",
+        valid_file="/home/dillon/data/cpdb2/cpdb_valid.tfrecords",
+        test_file="/home/dillon/data/cpdb2/cpdb513_test.tfrecords",
         num_layers=2,
-        num_units=100,
-        batch_size=32,
-        num_epochs=2,
-        steps_per_epoch=50,
-        validation_steps=25,
-        model="lm")
+        num_units=300,
+        batch_size=64,
+        num_epochs=10,
+        steps_per_epoch=100,
+        validation_steps=10,
+        model="bdrnn",
+        )
+    lm_hparams = tf.contrib.training.HParams(
+        num_phyche_features=7,
+        num_layers=1,
+        num_units=400,
+        )
     # set session
     sess = tf.Session()
     tf.keras.backend.set_session(sess)
     
     train_dataset = create_dataset(hparams, tf.contrib.learn.ModeKeys.TRAIN)
     valid_dataset = create_dataset(hparams, tf.contrib.learn.ModeKeys.EVAL)
+    test_dataset = create_dataset(hparams, tf.contrib.learn.ModeKeys.EVAL)
 
     # initialize tables
     sess.run([tf.tables_initializer()])
     
-    model = lm_model(hparams)
+    model = bdrnn_model(hparams, lm_hparams)
     model.summary()
-
-    
-
 
     model.compile(optimizer="rmsprop",
                   loss="categorical_crossentropy",
@@ -76,3 +121,7 @@ if __name__ == "__main__":
               steps_per_epoch=hparams.steps_per_epoch,
               validation_data=valid_dataset,
               validation_steps=hparams.validation_steps)
+    
+    print(model.predict(x=test_dataset, steps=1))
+
+    

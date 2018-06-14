@@ -19,12 +19,12 @@ def create_dataset(hparams, mode):
         input_file = hparams.train_file
         shuffle = True
         batch_size = hparams.batch_size
-        num_epochs = hparams.num_epochs
+        num_epochs = -1
     elif mode == tf.contrib.learn.ModeKeys.EVAL:
         input_file = hparams.valid_file
         shuffle = False
         batch_size = hparams.batch_size
-        num_epochs = hparams.num_epochs
+        num_epochs = -1 # indefinitely
     else:
         print("INFER mode not supported.")
         quit()
