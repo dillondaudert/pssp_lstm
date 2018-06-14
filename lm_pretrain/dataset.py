@@ -24,7 +24,7 @@ def create_dataset(hparams, mode):
         input_file = hparams.valid_file
         shuffle = False
         batch_size = hparams.batch_size
-        num_epochs = 1
+        num_epochs = hparams.num_epochs
     else:
         print("INFER mode not supported.")
         quit()
