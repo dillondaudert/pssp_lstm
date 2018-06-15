@@ -3,7 +3,6 @@
 from pathlib import Path
 import tensorflow as tf, numpy as np
 from .parsers import cpdb_parser, cUR50_parser
-from .lookup import create_lookup_table
 
 def create_dataset(hparams, mode):
     """
@@ -39,72 +38,51 @@ def create_dataset(hparams, mode):
     # parse the records
     # NOTE: id, len, seq: str, phyche(, pssm, ss: str)
     dataset = dataset.map(lambda x:parser(x, hparams), num_parallel_calls=4)
+    dataset = dataset.cache()
 
     # create lookup tables for strings
-    hparams.prot_lookup_table = create_lookup_table("prot")
-    hparams.prot_reverse_lookup_table = create_lookup_table("prot", reverse=True)
-    hparams.struct_lookup_table = create_lookup_table("struct")
-    hparams.struct_reverse_lookup_table = create_lookup_table("struct", reverse=True)
     prot_size = tf.cast(hparams.prot_lookup_table.size(), tf.int32)
     struct_size = tf.cast(hparams.struct_lookup_table.size(), tf.int32)
 
+
     if hparams.model == "lm":
-        # split characters
+        def lm_map_func(id, seq_len, seq, phyche):
+            prot_eye = tf.eye(prot_size)
+            # split characters
+            seq = tf.string_split([seq], delimiter="").values
+            # map to integers
+            seq = tf.cast(hparams.prot_lookup_table.lookup(seq), tf.int32)
+            # map to one-hots
+            seq = tf.nn.embedding_lookup(prot_eye, seq)
+            pssm = tf.constant(-1)
+
+            return id, seq_len, seq, phyche, pssm, seq
         dataset = dataset.map(
-                lambda id, seq_len, seq, phyche: \
-                        (id, seq_len, tf.string_split([seq], delimiter="").values, phyche),
-                num_parallel_calls=4)
-        # convert characters to integers
-        dataset = dataset.map(
-                lambda id, seq_len, seq, phyche: \
-                        (id, seq_len, tf.cast(hparams.prot_lookup_table.lookup(seq), tf.int32), phyche),
-                num_parallel_calls=4)
-        # convert integers to one-hots
-        dataset = dataset.map(
-                lambda id, seq_len, seq, phyche: \
-                        (id, 
-                         seq_len, 
-                         tf.nn.embedding_lookup(tf.eye(prot_size), seq),
-                         phyche),
-                num_parallel_calls=4)
-        # target is seq itself
-        dataset = dataset.map(
-                lambda id, seq_len, seq, phyche: \
-                        (id, seq_len, seq, phyche, tf.constant(-1), seq),
+                lambda id, seq_len, seq, phyche: lm_map_func(id, seq_len, seq, phyche),
                 num_parallel_calls=4)
 
     else:
+        def bdrnn_map_func(id, seq_len, seq, phyche, pssm, ss):
+            prot_eye = tf.eye(prot_size)
+            struct_eye = tf.eye(struct_size)
+            # split characters
+            seq = tf.string_split([seq], delimiter="").values
+            ss = tf.string_split([ss], delimiter="").values
+            # map to integers
+            seq = tf.cast(hparams.prot_lookup_table.lookup(seq), tf.int32)
+            ss = tf.cast(hparams.struct_lookup_table.lookup(ss), tf.int32)
+            # map to one-hots
+            seq = tf.nn.embedding_lookup(prot_eye, seq)
+            ss = tf.nn.embedding_lookup(struct_eye, ss)
+
+            return id, seq_len, seq, phyche, pssm, ss
+
         dataset = dataset.map(
-                lambda id, seq_len, seq, phyche, pssm, ss: \
-                        (id,
-                         seq_len,
-                         tf.string_split([seq], delimiter="").values,
-                         phyche,
-                         pssm,
-                         tf.string_split([ss], delimiter="").values),
+                lambda id, seq_len, seq, phyche, pssm, ss: bdrnn_map_func(id, seq_len, seq, phyche, pssm, ss),
                 num_parallel_calls=4)
-        dataset = dataset.map(
-                lambda id, seq_len, seq, phyche, pssm, ss: \
-                        (id,
-                         seq_len,
-                         tf.cast(hparams.prot_lookup_table.lookup(seq), tf.int32),
-                         phyche,
-                         pssm,
-                         tf.cast(hparams.struct_lookup_table.lookup(ss), tf.int32)),
-                num_parallel_calls=4)
-        # convert integers to one-hots
-        dataset = dataset.map(
-                lambda id, seq_len, seq, phyche, pssm, ss: \
-                        (id, 
-                         seq_len, 
-                         tf.nn.embedding_lookup(tf.eye(prot_size), seq),
-                         phyche,
-                         pssm,
-                         tf.nn.embedding_lookup(tf.eye(struct_size), ss)),
-                num_parallel_calls=4)
-        
-    
+
     dataset = dataset.cache()
+
 
     if shuffle:
         dataset = dataset.apply(tf.contrib.data.shuffle_and_repeat(buffer_size=batch_size*100, count=num_epochs))
@@ -133,14 +111,14 @@ def create_dataset(hparams, mode):
                        pssm_shape, # pssm
                        target_shape, # target (ss or seq)
                        )))
-    
+
     # map to (x, y) tuple for Keras comformability
     dataset = dataset.map(lambda id, seq_len, seq, phyche, pssm, tar: \
-                          ((id, seq_len, seq, phyche, pssm), 
+                          ((id, seq_len, seq, phyche, pssm),
                           tar))
 
     # prefetch on CPU
-    dataset = dataset.prefetch(2)
+    dataset = dataset.prefetch(1)
 
     return dataset
 
