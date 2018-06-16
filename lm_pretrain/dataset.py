@@ -38,12 +38,18 @@ def create_dataset(hparams, mode):
     # parse the records
     # NOTE: id, len, seq: str, phyche(, pssm, ss: str)
     dataset = dataset.map(lambda x:parser(x, hparams), num_parallel_calls=4)
-    dataset = dataset.cache()
 
     # create lookup tables for strings
     prot_size = tf.cast(hparams.prot_lookup_table.size(), tf.int32)
     struct_size = tf.cast(hparams.struct_lookup_table.size(), tf.int32)
 
+    # cache results of the parse function
+    dataset = dataset.cache()
+
+    if shuffle:
+        dataset = dataset.apply(tf.contrib.data.shuffle_and_repeat(buffer_size=batch_size*100, count=num_epochs))
+    else:
+        dataset = dataset.repeat(num_epochs)
 
     if hparams.model == "lm":
         def lm_map_func(id, seq_len, seq, phyche):
@@ -81,13 +87,6 @@ def create_dataset(hparams, mode):
                 lambda id, seq_len, seq, phyche, pssm, ss: bdrnn_map_func(id, seq_len, seq, phyche, pssm, ss),
                 num_parallel_calls=4)
 
-    dataset = dataset.cache()
-
-
-    if shuffle:
-        dataset = dataset.apply(tf.contrib.data.shuffle_and_repeat(buffer_size=batch_size*100, count=num_epochs))
-    else:
-        dataset = dataset.repeat(num_epochs)
 
     # determine pssm tensorshape
     if hparams.model == "lm":
