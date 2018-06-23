@@ -1,8 +1,9 @@
 # A LM / BDRNN model in Keras
 
+import time
 import tensorflow as tf
 import tensorflow.keras as keras
-from tensorflow.keras.layers import Input, LSTMCell, RNN, Dense, concatenate, Masking, Bidirectional
+from tensorflow.keras.layers import Input, LSTMCell, RNN, Dense, concatenate, Masking, Bidirectional, Lambda
 from tensorflow.keras.models import Model
 from .dataset import create_dataset
 from .lookup import create_lookup_table
@@ -26,12 +27,16 @@ def create_models(hparams):
     embed = Dense(units=10, use_bias=False, name="embed")(seq_in_mask)
     lm_x = concatenate([embed, phyche_in_mask])
 
-    lm_cells = [LSTMCell(units=hparams.lm_num_units) for _ in range(hparams.lm_num_layers)]
+    lm_cells = [LSTMCell(units=hparams.lm_num_units,
+                         recurrent_activation='sigmoid',
+                         implementation=2) for _ in range(hparams.lm_num_layers)]
 
     lm_rnn_out = Bidirectional(RNN(lm_cells, return_sequences=True, name="lm_rnn"), merge_mode="concat")(lm_x)
 
     lm_dense1 = Dense(units=200, activation="relu", name="lm_dense1")(lm_rnn_out)
     lm_dense2 = Dense(units=100, activation="relu", name="lm_dense2")(lm_dense1)
+
+    lm_embed = Dense(units=10, name="lm_embed")(lm_dense2)
 
     # the language model output
     lm_out = Dense(units=23, activation="softmax", name="lm_out")(lm_dense2)
@@ -39,9 +44,11 @@ def create_models(hparams):
     # --------
 
     # create inputs to bdrnn
-    x = concatenate([embed, pssm_in_mask, lm_dense2])
+    x = concatenate([embed, lm_embed, pssm_in_mask])
 
-    cells = [LSTMCell(units=hparams.num_units) for _ in range(hparams.num_layers)]
+    cells = [LSTMCell(units=hparams.num_units,
+                      recurrent_activation='sigmoid',
+                      implementation=2) for _ in range(hparams.num_layers)]
 
     rnn_out = Bidirectional(RNN(cells, return_sequences=True, name="bdrnn_fw"), merge_mode="concat")(x)
 
@@ -49,14 +56,14 @@ def create_models(hparams):
     dense2 = Dense(units=50, activation="relu")(dense1)
 
     out = Dense(units=10, activation="softmax")(dense2)
+#    pred_indices = Lambda(lambda x: keras.backend.argmax(x))(out)
+#    preds = Lambda(lambda x: keras.backend.one_hot(x, 10))(pred_indices)
 
     bdrnn_model = Model(inputs=[seq_id, seq_lens, seq_in, phyche_in, pssm_in],
                         outputs=[out])
     lm_model = Model(inputs=[seq_id, seq_lens, seq_in, phyche_in, pssm_in],
                      outputs=[lm_out])
     return {"bdrnn": bdrnn_model, "lm": lm_model}
-
-
 
 if __name__ == "__main__":
     hparams = tf.contrib.training.HParams(
@@ -65,52 +72,58 @@ if __name__ == "__main__":
         valid_file="/home/dillon/data/cpdb2/cpdb_valid.tfrecords",
         test_file="/home/dillon/data/cpdb2/cpdb513_test.tfrecords",
         num_layers=1,
-        num_units=200,
+        num_units=300,
         batch_size=50,
-        num_epochs=10,
-        steps_per_epoch=60,
+        num_epochs=40,
+        steps_per_epoch=75,
         validation_steps=10,
         lm_num_layers=2,
         lm_num_units=300,
         model="bdrnn",
         )
-    
-    # set session
-    sess = tf.Session()
 
-    # create lookup tables
-    hparams.prot_lookup_table = create_lookup_table("prot")
-    hparams.prot_reverse_lookup_table = create_lookup_table("prot", reverse=True)
-    hparams.struct_lookup_table = create_lookup_table("struct")
-    hparams.struct_reverse_lookup_table = create_lookup_table("struct", reverse=True)
+    g = tf.Graph()
+    with tf.Session(graph=g) as sess:
 
-    train_dataset = create_dataset(hparams, tf.contrib.learn.ModeKeys.TRAIN)
-    valid_dataset = create_dataset(hparams, tf.contrib.learn.ModeKeys.EVAL)
+        # create lookup tables
+        hparams.prot_lookup_table = create_lookup_table("prot")
+        hparams.prot_reverse_lookup_table = create_lookup_table("prot", reverse=True)
+        hparams.struct_lookup_table = create_lookup_table("struct")
+        hparams.struct_reverse_lookup_table = create_lookup_table("struct", reverse=True)
 
-    # initialize tables
-    sess.run([tf.tables_initializer()])
-    tf.keras.backend.set_session(sess)
+        train_dataset = create_dataset(hparams, tf.contrib.learn.ModeKeys.TRAIN)
+        valid_dataset = create_dataset(hparams, tf.contrib.learn.ModeKeys.EVAL)
+        test_dataset = create_dataset(hparams, tf.contrib.learn.ModeKeys.EVAL)
 
-    models = create_models(hparams)
-    model = models["bdrnn"]
+        # initialize tables
+        sess.run([tf.tables_initializer()])#, train_iterator.initializer, valid_iterator.initializer, test_iterator.initializer])
+        keras.backend.set_session(sess)
 
-    model.compile(optimizer="rmsprop",
-                  loss="categorical_crossentropy",
-                  metrics=["accuracy"],)
-    
-    tb_callback = tf.keras.callbacks.TensorBoard(log_dir="/home/dillon/models/logs/test",
-                                                 histogram_freq=1,
-                                                 batch_size=hparams.validation_steps)
+        models = create_models(hparams)
+        model = models["bdrnn"]
+        model.summary()
 
-    model.fit(x=train_dataset,
-              epochs=hparams.num_epochs,
-              steps_per_epoch=hparams.steps_per_epoch,
-              validation_data=valid_dataset,
-              validation_steps=hparams.validation_steps,
-              callbacks=[tb_callback])
-    
-    hparams.batch_size=10
-    test_dataset = create_dataset(hparams, tf.contrib.learn.ModeKeys.EVAL)
-    print(model.evaluate(x=test_dataset, steps=50))
+        #rmsprop = keras.optimizers.RMSprop(lr=0.001, clipnorm=0.5)
+        model.compile(optimizer="rmsprop",
+                      loss="categorical_crossentropy",
+                      metrics=["accuracy"],)
+
+        model.fit(x=train_dataset,
+                  epochs=hparams.num_epochs,
+                  steps_per_epoch=hparams.steps_per_epoch,
+                  validation_data=valid_dataset,
+                  validation_steps=hparams.validation_steps,
+                  callbacks=[keras.callbacks.EarlyStopping("val_loss", 0.001, 5, verbose=1),
+                             keras.callbacks.TensorBoard("/home/dillon/models/logs/%s"%(time.asctime(time.localtime())),
+                                                         histogram_freq=1,
+                                                         write_grads=True,
+                                                         batch_size=hparams.batch_size),
+                             keras.callbacks.ModelCheckpoint("/home/dillon/models/TEST_KERAS/model.{epoch:02d}-{val_loss:1.2f}.hdf5",
+                                                             monitor="val_loss",
+                                                             verbose=1,
+                                                             save_best_only=True)])
+
+        print(model.evaluate(x=test_dataset, steps=10))
+
 
 

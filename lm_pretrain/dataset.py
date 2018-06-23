@@ -117,7 +117,7 @@ def create_dataset(hparams, mode):
                           tar))
 
     # prefetch on CPU
-    dataset = dataset.prefetch(1)
+    dataset = dataset.prefetch(2)
 
     return dataset
 
