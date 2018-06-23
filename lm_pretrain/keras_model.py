@@ -1,13 +1,15 @@
 # A LM / BDRNN model in Keras
 
 import time
+
+from comet_ml import Experiment
+
 import tensorflow as tf
 import tensorflow.keras as keras
-from tensorflow.keras.layers import Input, LSTMCell, RNN, Dense, concatenate, Masking, Bidirectional, Lambda
+from tensorflow.keras.layers import Input, GRUCell, LSTMCell, RNN, Dense, concatenate, Masking, Bidirectional, Lambda
 from tensorflow.keras.models import Model
 from .dataset import create_dataset
 from .lookup import create_lookup_table
-import gc
 
 def create_models(hparams):
 
@@ -27,9 +29,15 @@ def create_models(hparams):
     embed = Dense(units=10, use_bias=False, name="embed")(seq_in_mask)
     lm_x = concatenate([embed, phyche_in_mask])
 
-    lm_cells = [LSTMCell(units=hparams.lm_num_units,
-                         recurrent_activation='sigmoid',
-                         implementation=2) for _ in range(hparams.lm_num_layers)]
+    if hparams.rnn_cell == "gru":
+        RNNCell = GRUCell
+    else:
+        RNNCell = LSTMCell
+
+    lm_cells = [RNNCell(units=hparams.lm_num_units,
+                        dropout=hparams.lm_dropout,
+                        recurrent_dropout=hparams.lm_dropout,
+                        implementation=2) for _ in range(hparams.lm_num_layers)]
 
     lm_rnn_out = Bidirectional(RNN(lm_cells, return_sequences=True, name="lm_rnn"), merge_mode="concat")(lm_x)
 
@@ -46,11 +54,12 @@ def create_models(hparams):
     # create inputs to bdrnn
     x = concatenate([embed, lm_embed, pssm_in_mask])
 
-    cells = [LSTMCell(units=hparams.num_units,
-                      recurrent_activation='sigmoid',
-                      implementation=2) for _ in range(hparams.num_layers)]
+    cells = [RNNCell(units=hparams.num_units,
+                     dropout=hparams.dropout,
+                     recurrent_dropout=hparams.dropout,
+                     implementation=2) for _ in range(hparams.num_layers)]
 
-    rnn_out = Bidirectional(RNN(cells, return_sequences=True, name="bdrnn_fw"), merge_mode="concat")(x)
+    rnn_out = Bidirectional(RNN(cells, return_sequences=True, name="bdrnn_rnn"), merge_mode="concat")(x)
 
     dense1 = Dense(units=100, activation="relu")(rnn_out)
     dense2 = Dense(units=50, activation="relu")(dense1)
@@ -71,16 +80,24 @@ if __name__ == "__main__":
         train_file="/home/dillon/data/cpdb2/cpdb_train.tfrecords",
         valid_file="/home/dillon/data/cpdb2/cpdb_valid.tfrecords",
         test_file="/home/dillon/data/cpdb2/cpdb513_test.tfrecords",
-        num_layers=1,
+        rnn_cell="gru",
+        num_layers=2,
         num_units=300,
+        dropout=0.,
+        lm_num_layers=2,
+        lm_num_units=300,
+        lm_dropout=0.,
         batch_size=50,
         num_epochs=40,
         steps_per_epoch=75,
         validation_steps=10,
-        lm_num_layers=2,
-        lm_num_units=300,
         model="bdrnn",
         )
+    experiment = Experiment(api_key="",
+                            project_name="thesis-baseline",
+                            auto_param_logging=False)
+    experiment.log_multiple_params(hparams.values())
+
 
     g = tf.Graph()
     with tf.Session(graph=g) as sess:
@@ -108,22 +125,34 @@ if __name__ == "__main__":
                       loss="categorical_crossentropy",
                       metrics=["accuracy"],)
 
-        model.fit(x=train_dataset,
-                  epochs=hparams.num_epochs,
-                  steps_per_epoch=hparams.steps_per_epoch,
-                  validation_data=valid_dataset,
-                  validation_steps=hparams.validation_steps,
-                  callbacks=[keras.callbacks.EarlyStopping("val_loss", 0.001, 5, verbose=1),
-                             keras.callbacks.TensorBoard("/home/dillon/models/logs/%s"%(time.asctime(time.localtime())),
-                                                         histogram_freq=1,
-                                                         write_grads=True,
-                                                         batch_size=hparams.batch_size),
-                             keras.callbacks.ModelCheckpoint("/home/dillon/models/TEST_KERAS/model.{epoch:02d}-{val_loss:1.2f}.hdf5",
-                                                             monitor="val_loss",
-                                                             verbose=1,
-                                                             save_best_only=True)])
+        #modeldir = "/home/dillon/models/thesis/baseline/%s" % (time.asctime(time.localtime()))
+        modeldir = "/home/dillon/models/thesis/baseline/lm-%d-%d-%.2f%%_bdrnn-%d-%d-%.2f%%/" % (hparams.lm_num_layers,
+                                                                                  hparams.lm_num_units,
+                                                                                  hparams.lm_dropout,
+                                                                                  hparams.num_layers,
+                                                                                  hparams.num_units,
+                                                                                  hparams.dropout)
 
-        print(model.evaluate(x=test_dataset, steps=10))
+        with experiment.train():
+            model.fit(x=train_dataset,
+                      epochs=hparams.num_epochs,
+                      steps_per_epoch=hparams.steps_per_epoch,
+                      validation_data=valid_dataset,
+                      validation_steps=hparams.validation_steps,
+                      callbacks=[keras.callbacks.EarlyStopping("val_loss", 0.001, 5, verbose=1),
+                                 keras.callbacks.TensorBoard(modeldir+"/logs/"),
+                                 keras.callbacks.ModelCheckpoint(modeldir+"/test_baseline.hdf5",
+                                                                 monitor="val_loss",
+                                                                 save_best_only=True)])
+
+        with experiment.test():
+            test_loss, test_acc = model.evaluate(x=test_dataset, steps=10)
+            metrics = {
+                "loss": test_loss,
+                "accuracy": test_acc,
+            }
+            experiment.log_multiple_metrics(metrics)
+
 
 
 
