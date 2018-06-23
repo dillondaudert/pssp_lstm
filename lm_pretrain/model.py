@@ -156,7 +156,6 @@ class LMandBDRNNModel(object):
                                                               labels=tgt_outputs,
                                                               name="crossent")
 
-        # divide loss by batch_size * mean(seq_len)
         loss = tf.reduce_sum(crossent*mask)/tf.cast(hparams.batch_size, tf.float32)
 
         metrics = []
