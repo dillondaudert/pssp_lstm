@@ -14,30 +14,36 @@ def create_dataset(hparams, mode):
         dataset - A tf.data.Dataset object
     """
 
-    if mode == tf.contrib.learn.ModeKeys.TRAIN:
-        input_file = hparams.train_file
-        shuffle = True
-        batch_size = hparams.batch_size
-        num_epochs = -1
-    elif mode == tf.contrib.learn.ModeKeys.EVAL:
-        input_file = hparams.valid_file
+    if "dataset" in hparams:
+        dataset = hparams.dataset
         shuffle = False
+        num_epochs = hparams.num_epochs
         batch_size = hparams.batch_size
-        num_epochs = -1 # indefinitely
     else:
-        print("INFER mode not supported.")
-        quit()
+        if mode == tf.contrib.learn.ModeKeys.TRAIN:
+            input_file = hparams.train_file
+            shuffle = True
+            batch_size = hparams.batch_size
+            num_epochs = -1
+        elif mode == tf.contrib.learn.ModeKeys.EVAL:
+            input_file = hparams.valid_file
+            shuffle = False
+            batch_size = hparams.batch_size
+            num_epochs = -1 # indefinitely
+        else:
+            print("INFER mode not supported.")
+            quit()
 
-    if hparams.model == "lm":
-        parser = cUR50_parser
-    elif hparams.model == "bdrnn":
-        parser = cpdb_parser
+        if hparams.model == "lm":
+            parser = cUR50_parser
+        elif hparams.model == "bdrnn":
+            parser = cpdb_parser
 
-    dataset = tf.data.TFRecordDataset(input_file)
+        dataset = tf.data.TFRecordDataset(input_file)
 
-    # parse the records
-    # NOTE: id, len, seq: str, phyche(, pssm, ss: str)
-    dataset = dataset.map(lambda x:parser(x, hparams), num_parallel_calls=4)
+        # parse the records
+        # NOTE: id, len, seq: str, phyche(, pssm, ss: str)
+        dataset = dataset.map(lambda x:parser(x, hparams), num_parallel_calls=4)
 
     # create lookup tables for strings
     prot_size = tf.cast(hparams.prot_lookup_table.size(), tf.int32)
@@ -51,6 +57,10 @@ def create_dataset(hparams, mode):
     else:
         dataset = dataset.repeat(num_epochs)
 
+    sos_id = tf.cast(hparams.prot_lookup_table.lookup(tf.constant("SOS")), tf.int32)
+    eos_id = tf.cast(hparams.prot_lookup_table.lookup(tf.constant("EOS")), tf.int32)
+
+
     if hparams.model == "lm":
         def lm_map_func(id, seq_len, seq, phyche):
             prot_eye = tf.eye(prot_size)
@@ -58,6 +68,12 @@ def create_dataset(hparams, mode):
             seq = tf.string_split([seq], delimiter="").values
             # map to integers
             seq = tf.cast(hparams.prot_lookup_table.lookup(seq), tf.int32)
+            # prepend/append SOS/EOS tokens
+            seq = tf.concat(([sos_id], seq, [eos_id]), 0)
+            seq_len = seq_len + tf.constant(2, dtype=tf.int32)
+            # prepend zeros to phyche
+            phyche_pad = tf.zeros(shape=(1, hparams.num_phyche_features))
+            phyche = tf.concat([phyche_pad, phyche], 0)
             # map to one-hots
             seq = tf.nn.embedding_lookup(prot_eye, seq)
             pssm = tf.constant(-1)
@@ -77,6 +93,15 @@ def create_dataset(hparams, mode):
             # map to integers
             seq = tf.cast(hparams.prot_lookup_table.lookup(seq), tf.int32)
             ss = tf.cast(hparams.struct_lookup_table.lookup(ss), tf.int32)
+            # prepend/append sos/eos tokens and add 2 to length
+            seq = tf.concat(([sos_id], seq, [eos_id]), 0)
+            seq_len = seq_len + tf.constant(2, dtype=tf.int32)
+            # prepend zeros to phyche
+            phyche_pad = tf.zeros(shape=(1, hparams.num_phyche_features))
+            phyche = tf.concat([phyche_pad, phyche], 0)
+            # prepend zeros to pssm
+            pssm_pad = tf.zeros(shape=(1, tf.shape(pssm)[1]))
+            pssm = tf.concat([pssm_pad, pssm], 0)
             # map to one-hots
             seq = tf.nn.embedding_lookup(prot_eye, seq)
             ss = tf.nn.embedding_lookup(struct_eye, ss)
@@ -93,7 +118,7 @@ def create_dataset(hparams, mode):
         pssm_shape = tf.TensorShape([])
         target_shape = tf.TensorShape([None, 23])
     else: #if hparams.model == "bdrnn":
-        pssm_shape = tf.TensorShape([None, 21])
+        pssm_shape = tf.TensorShape([None, hparams.num_pssm_features])
         target_shape = tf.TensorShape([None, 10])
 
     dataset = dataset.apply(tf.contrib.data.bucket_by_sequence_length(
