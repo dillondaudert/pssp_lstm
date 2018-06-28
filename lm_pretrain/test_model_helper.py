@@ -18,8 +18,8 @@ class TestModelHelperFunctions(unittest.TestCase):
     lens = np.array([[6], [5]], dtype=np.int32)
 
     def setUp(self):
-        self.x = Input(shape=(None, 1), batch_size=2)
-        self.x_lens = Input(shape=(1,), batch_size=2, dtype="int32")
+        self.x = Input(shape=(None, 1))
+        self.x_lens = Input(shape=(1,), dtype="int32")
 
     def tearDown(self):
         keras.backend.clear_session()
@@ -102,6 +102,39 @@ class TestModelHelperFunctions(unittest.TestCase):
         preds = model.predict([self.data, self.lens])
 
         self.assertTrue(np.array_equal(self.targets, preds))
+
+    def test_rev_cut_rnn_dataset(self):
+        cut_lam = cut_layer()
+        rev_lam = rev_layer(self.x_lens)
+        unrev_lam = rev_layer(self.x_lens - tf.constant(2, dtype=tf.int32))
+
+        rnn = Bidirectional(SimpleRNN(units=1,
+                                      activation="linear",
+                                      kernel_initializer="ones",
+                                      recurrent_initializer="zeros",
+                                      return_sequences=True),
+                            merge_mode=None)
+        fw, bw = rnn(self.x)
+        # cut bw
+        bw_cut = cut_lam(bw)
+        # rev, cut, unrev fw
+        fw_rev = rev_lam(fw)
+        fw_cut = cut_lam(fw_rev)
+        fw_unrev = unrev_lam(fw_cut)
+
+        y = concatenate([fw_unrev, bw_cut], axis=-1)
+        model = Model(inputs=[self.x, self.x_lens], outputs=[y])
+        model.compile(loss="mse", optimizer="rmsprop")
+
+        dataset = tf.data.Dataset.from_tensor_slices((self.data, self.lens, self.targets))
+        dataset = dataset.map(lambda x, l, t: ((x, l), t))
+        dataset = dataset.repeat(100)
+        dataset = dataset.batch(2)
+
+        preds = model.predict(dataset, steps=1)
+
+        self.assertTrue(np.array_equal(self.targets, preds))
+
 
 
 if __name__ == "__main__":
