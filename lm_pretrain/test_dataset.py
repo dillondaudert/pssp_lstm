@@ -13,7 +13,9 @@ class TestDatasetPipeline(unittest.TestCase):
             batch_size=2,
             num_epochs=100,
             prot_lookup_table=None,
+            prot_reverse_lookup_table=None,
             struct_lookup_table=None,
+            struct_reverse_lookup_table=None,
             dataset=None,
             model=None)
 
@@ -45,7 +47,9 @@ class TestDatasetPipeline(unittest.TestCase):
                                tf.TensorShape([])))
 
         self.hparams.prot_lookup_table = create_lookup_table("prot")
+        self.hparams.prot_reverse_lookup_table = create_lookup_table("prot", reverse=True)
         self.hparams.struct_lookup_table = create_lookup_table("struct")
+        self.hparams.struct_reverse_lookup_table = create_lookup_table("struct", reverse=True)
         self.sess.run(tf.tables_initializer())
 
 
@@ -69,16 +73,8 @@ class TestDatasetPipeline(unittest.TestCase):
         x = iterator.get_next()
         self.sess.run(iterator.initializer)
         (_id, _len, _seq, _phyche, __), _ = self.sess.run(x)
-        print("SEQ:")
-        print(_seq)
-        print("PHYCHE:")
-        print(_phyche)
-
 #        target_seq = np.array([[[
-
 #        self.assertTrue(np.array_equal( , _seq))
-
-
 
 
 if __name__ == "__main__":

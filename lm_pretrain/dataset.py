@@ -69,16 +69,17 @@ def create_dataset(hparams, mode):
             # map to integers
             seq = tf.cast(hparams.prot_lookup_table.lookup(seq), tf.int32)
             # prepend/append SOS/EOS tokens
-            seq = tf.concat(([sos_id], seq, [eos_id]), 0)
+            seq_in = tf.concat(([sos_id], seq, [eos_id]), 0)
             seq_len = seq_len + tf.constant(2, dtype=tf.int32)
             # prepend zeros to phyche
             phyche_pad = tf.zeros(shape=(1, hparams.num_phyche_features))
-            phyche = tf.concat([phyche_pad, phyche], 0)
+            phyche = tf.concat([phyche_pad, phyche, phyche_pad], 0)
             # map to one-hots
             seq = tf.nn.embedding_lookup(prot_eye, seq)
-            pssm = tf.constant(-1)
+            seq_in = tf.nn.embedding_lookup(prot_eye, seq_in)
+            pssm = tf.zeros(shape=(1, hparams.num_pssm_features))
 
-            return id, seq_len, seq, phyche, pssm, seq
+            return id, seq_len, seq_in, phyche, pssm, seq
         dataset = dataset.map(
                 lambda id, seq_len, seq, phyche: lm_map_func(id, seq_len, seq, phyche),
                 num_parallel_calls=4)
@@ -115,7 +116,7 @@ def create_dataset(hparams, mode):
 
     # determine pssm tensorshape
     if hparams.model == "lm":
-        pssm_shape = tf.TensorShape([])
+        pssm_shape = tf.TensorShape([1, hparams.num_pssm_features])
         target_shape = tf.TensorShape([None, 23])
     else: #if hparams.model == "bdrnn":
         pssm_shape = tf.TensorShape([None, hparams.num_pssm_features])
@@ -135,11 +136,10 @@ def create_dataset(hparams, mode):
                        pssm_shape, # pssm
                        target_shape, # target (ss or seq)
                        )))
-
-    # map to (x, y) tuple for Keras comformability
-    dataset = dataset.map(lambda id, seq_len, seq, phyche, pssm, tar: \
-                          ((id, seq_len, seq, phyche, pssm),
-                          tar))
+    else:
+        dataset = dataset.map(lambda id, seq_len, seq, phyche, pssm, tar: \
+                              ((id, seq_len, seq, phyche, pssm),
+                              tar))
 
     # prefetch on CPU
     dataset = dataset.prefetch(2)
