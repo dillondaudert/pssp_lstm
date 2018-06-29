@@ -11,6 +11,7 @@ hparams = {
             num_lm_units=300,
             num_lm_layers=2,
             num_lm_dense_units=200,
+            cell_type="gru",
             dropout=0.0,
             in_embed_units=10,
             out_embed_units=30,

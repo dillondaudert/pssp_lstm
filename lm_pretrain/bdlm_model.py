@@ -35,10 +35,12 @@ class BDLMModel(BaseModel):
 
             x = tf.concat([in_embed, phyche], axis=-1)
 
-            fw_cells = _create_rnn_cell(num_units=hparams.num_lm_units,
+            fw_cells = _create_rnn_cell(cell_type=hparams.cell_type,
+                                        num_units=hparams.num_lm_units,
                                         num_layers=hparams.num_lm_layers,
                                         mode=mode)
-            bw_cells = _create_rnn_cell(num_units=hparams.num_lm_units,
+            bw_cells = _create_rnn_cell(cell_type=hparams.cell_type,
+                                        num_units=hparams.num_lm_units,
                                         num_layers=hparams.num_lm_layers,
                                         mode=mode)
 
