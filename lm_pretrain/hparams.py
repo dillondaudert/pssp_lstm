@@ -1,58 +1,23 @@
 """Hyperparameters for PSSP LSTM"""
 
 import tensorflow as tf
+from .bdlm_model import BDLMModel
+from .bdrnn_model import BDRNNModel
 
 hparams = {
-   "bdrnn": tf.contrib.training.HParams(
-            num_features=43,
-            num_labels=9,
-            num_units=300,
-            num_layers=2,
-            input_proj_size=50,
-            num_dense_units=200,
-            dropout=0.5,
+   "bdlm": tf.contrib.training.HParams(
+            num_phyche_features=7,
+            num_labels=23,
+            num_lm_units=300,
+            num_lm_layers=2,
+            num_lm_dense_units=200,
+            dropout=0.0,
+            in_embed_units=10,
+            out_embed_units=30,
             batch_size=50,
-            num_epochs=250,
+            num_epochs=200,
             max_gradient_norm=0.5,
             num_keep_ckpts=9,
-            model="bdrnn"),
-   "lm": tf.contrib.training.HParams(
-            num_features=43,
-            num_labels=22,
-            num_units=300,
-            num_layers=0,
-            num_dense_units=200,
-            dropout=0.5,
-            input_proj_size=50,
-            batch_size=50,
-            num_epochs=250,
-            max_gradient_norm=0.5,
-            num_keep_ckpts=9,
-            model="lm"),
-   "bdrnn_large": tf.contrib.training.HParams(
-            num_features=43,
-            num_labels=9,
-            num_units=500,
-            num_layers=2,
-            input_proj_size=50,
-            num_dense_units=300,
-            dropout=0.5,
-            batch_size=50,
-            num_epochs=250,
-            max_gradient_norm=0.5,
-            num_keep_ckpts=9,
-            model="bdrnn"),
-   "lm_large": tf.contrib.training.HParams(
-            num_features=43,
-            num_labels=22,
-            num_units=500,
-            num_layers=0,
-            num_dense_units=300,
-            dropout=0.5,
-            input_proj_size=50,
-            batch_size=50,
-            num_epochs=250,
-            max_gradient_norm=0.5,
-            num_keep_ckpts=9,
-            model="lm")
+            model="bdlm",
+            Model=BDLMModel),
    }
