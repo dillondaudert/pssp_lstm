@@ -61,9 +61,9 @@ def main():
 
         logpath = Path(args.logdir)
         HPARAMS.logdir = str(logpath.absolute())
-        HPARAMS.train_file = str(Path(args.datadir, "cpdb_train.tfrecords").absolute())
-        HPARAMS.valid_file = str(Path(args.datadir, "cpdb_valid.tfrecords").absolute())
-        HPARAMS.test_file = str(Path(args.datadir, "cpdb513_test.tfrecords").absolute())
+        HPARAMS.train_file = str(Path(args.datadir, HPARAMS.train_file).absolute())
+        HPARAMS.valid_file = str(Path(args.datadir, HPARAMS.valid_file).absolute())
+        HPARAMS.test_file = str(Path(args.datadir, HPARAMS.test_file).absolute())
 
         pretrain(HPARAMS)
 

@@ -21,5 +21,8 @@ hparams = {
             num_keep_ckpts=9,
             model="bdlm",
             Model=BDLMModel,
-            lm_ckpt=""),
+            lm_ckpt="",
+            train_file="cUR50_train.tfrecords",
+            valid_file="cUR50_valid.tfrecords",
+            test_file=""),
    }
