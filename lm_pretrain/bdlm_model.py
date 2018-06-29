@@ -12,8 +12,6 @@ class BDLMModel(BaseModel):
     def __init__(self, hparams, iterator, mode, scope=None):
         super(BDLMModel, self).__init__(hparams, iterator, mode, scope=scope)
 
-
-
     @staticmethod
     def _build_graph(hparams, inputs, mode, scope=None):
         """Construct the train, evaluation, and inference graphs.
