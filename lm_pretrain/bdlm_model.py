@@ -15,7 +15,7 @@ class BDLMModel(BaseModel):
 
 
     @staticmethod
-    def _build_graph(hparams, inputs, scope=None):
+    def _build_graph(hparams, inputs, mode, scope=None):
         """Construct the train, evaluation, and inference graphs.
         Args:
             hparams: The hyperparameters for configuration
@@ -37,10 +37,10 @@ class BDLMModel(BaseModel):
 
             fw_cells = _create_rnn_cell(num_units=hparams.num_lm_units,
                                         num_layers=hparams.num_lm_layers,
-                                        mode=self.mode)
+                                        mode=mode)
             bw_cells = _create_rnn_cell(num_units=hparams.num_lm_units,
                                         num_layers=hparams.num_lm_layers,
-                                        mode=self.mode)
+                                        mode=mode)
 
             #cells.build([None, hparams.num_features]) #hparams.input_proj_size])
 
@@ -85,7 +85,7 @@ class BDLMModel(BaseModel):
 
         metrics = []
         update_ops = []
-        if self.mode == tf.contrib.learn.ModeKeys.EVAL:
+        if mode == tf.contrib.learn.ModeKeys.EVAL:
             # mean eval loss
             loss, loss_update = tf.metrics.mean(values=loss)
 

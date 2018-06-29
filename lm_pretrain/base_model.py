@@ -21,7 +21,7 @@ class BaseModel(object):
         tf.get_variable_scope().set_initializer(initializer)
 
         inputs = self.iterator.get_next()
-        res = self._build_graph(hparams, inputs, scope=scope)
+        res = self._build_graph(hparams, inputs, mode, scope=scope)
 
         # Graph losses
         if self.mode == tf.contrib.learn.ModeKeys.TRAIN:
@@ -74,7 +74,7 @@ class BaseModel(object):
 
     @staticmethod
     @abc.abstractmethod
-    def _build_graph(hparams, inputs, scope=None):
+    def _build_graph(hparams, inputs, mode, scope=None):
         """Subclasses must implement this.
         Args:
             hparams: The configuration hyperparameters
