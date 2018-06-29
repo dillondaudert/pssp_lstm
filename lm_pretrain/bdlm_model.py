@@ -75,7 +75,7 @@ class BDLMModel(BaseModel):
                                      use_bias=False)
 
         # mask out entries longer than target sequence length
-        mask = tf.sequence_mask(seq_len, dtype=tf.float32)
+        mask = tf.sequence_mask(lens, dtype=tf.float32)
 
         crossent = tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits,
                                                               labels=seq_out,
@@ -94,10 +94,10 @@ class BDLMModel(BaseModel):
             predictions = tf.argmax(input=logits, axis=-1)
             tgt_labels = tf.argmax(input=seq_out, axis=-1)
             acc, acc_update = tf.metrics.accuracy(predictions=predictions,
-                                                  labels=seq_out,
+                                                  labels=tgt_labels,
                                                   weights=mask)
             # confusion matrix
-            targets_flat = tf.reshape(seq_out, [-1])
+            targets_flat = tf.reshape(tgt_labels, [-1])
             predictions_flat = tf.reshape(predictions, [-1])
             mask_flat = tf.reshape(mask, [-1])
             cm, cm_update = streaming_confusion_matrix(labels=targets_flat,

@@ -20,5 +20,6 @@ hparams = {
             max_gradient_norm=0.5,
             num_keep_ckpts=9,
             model="bdlm",
-            Model=BDLMModel),
+            Model=BDLMModel,
+            lm_ckpt=""),
    }
