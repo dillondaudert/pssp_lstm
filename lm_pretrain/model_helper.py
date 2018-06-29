@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow.contrib.rnn import LSTMCell, GRUCell
+from tensorflow.contrib.rnn import LSTMCell, GRUCell, MultiRNNCell
 from custom_rnn.stlstm import STLSTMCell
 from collections import namedtuple
 from .dataset import create_dataset
@@ -57,18 +57,18 @@ def _get_initial_state(state_sizes: list, batch_size, name):
 
     return init_states
 
-def _create_rnn_cell(cell_type, num_units, num_layers, mode):
+def _create_rnn_cell(cell_type, num_units, num_layers, mode, as_list=False):
     """Create a list of RNN cells.
 
     Args:
+        cell_type: the type of RNNCell
         num_units: the depth of each unit
         num_layers: the number of cells
         mode: either tf.contrib.learn.TRAIN/EVAL/INFER
-
+        as_list: return as a list of Cells if True, else as a MultiRNNCell
     Returns:
         A list of 'RNNCell' instances
     """
-    print("Change _create_rnn_cell to create a cell based on hparams")
 
     if cell_type == "gru":
         Cell = GRUCell
@@ -81,5 +81,8 @@ def _create_rnn_cell(cell_type, num_units, num_layers, mode):
                            num_units=num_units)
 #                           initializer=tf.glorot_uniform_initializer)
         cell_list.append(single_cell)
+
+    if not as_list:
+        return MultiRNNCell(cell_list)
 
     return cell_list
