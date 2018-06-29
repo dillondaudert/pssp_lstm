@@ -34,7 +34,7 @@ def create_dataset(hparams, mode):
             print("INFER mode not supported.")
             quit()
 
-        if hparams.model == "lm":
+        if hparams.model == "bdlm":
             parser = cUR50_parser
         elif hparams.model == "bdrnn":
             parser = cpdb_parser
@@ -45,7 +45,12 @@ def create_dataset(hparams, mode):
         # NOTE: id, len, seq: str, phyche(, pssm, ss: str)
         dataset = dataset.map(lambda x:parser(x, hparams), num_parallel_calls=4)
 
-    # create lookup tables for strings
+    # create lookup tables
+    hparams.prot_lookup_table = create_lookup_table("prot")
+    hparams.prot_reverse_lookup_table = create_lookup_table("prot", reverse=True)
+    hparams.struct_lookup_table = create_lookup_table("struct")
+    hparams.struct_reverse_lookup_table = create_lookup_table("struct", reverse=True)
+
     prot_size = tf.cast(hparams.prot_lookup_table.size(), tf.int32)
     struct_size = tf.cast(hparams.struct_lookup_table.size(), tf.int32)
 
@@ -75,14 +80,29 @@ def create_dataset(hparams, mode):
             phyche_pad = tf.zeros(shape=(1, hparams.num_phyche_features))
             phyche = tf.concat([phyche_pad, phyche, phyche_pad], 0)
             # map to one-hots
-            seq = tf.nn.embedding_lookup(prot_eye, seq)
             seq_in = tf.nn.embedding_lookup(prot_eye, seq_in)
-            pssm = tf.zeros(shape=(1, hparams.num_pssm_features))
+            seq_out = tf.nn.embedding_lookup(prot_eye, seq)
 
-            return id, seq_len, seq_in, phyche, pssm, seq
+            return id, seq_len, seq_in, phyche, seq_out
+
         dataset = dataset.map(
                 lambda id, seq_len, seq, phyche: lm_map_func(id, seq_len, seq, phyche),
                 num_parallel_calls=4)
+
+        dataset = dataset.apply(tf.contrib.data.bucket_by_sequence_length(
+            lambda id, seq_len, seq_in, phyche, seq_out: seq_len,
+            [50, 150, 250, 350, # buckets
+             450, 550, 650],
+            [batch_size, batch_size, batch_size, # all buckets have the
+             batch_size, batch_size, batch_size, # the same batch size
+             batch_size, batch_size],
+            padded_shapes=(tf.TensorShape([]), # id
+                           tf.TensorShape([]), # len
+                           tf.TensorShape([None, 23]), # seq
+                           tf.TensorShape([None, hparams.num_phyche_features]), # phyche
+                           tf.TensorShape([None, 23]), # seq_out
+                           )))
+
 
     else:
         def bdrnn_map_func(id, seq_len, seq, phyche, pssm, ss):
@@ -113,33 +133,20 @@ def create_dataset(hparams, mode):
                 lambda id, seq_len, seq, phyche, pssm, ss: bdrnn_map_func(id, seq_len, seq, phyche, pssm, ss),
                 num_parallel_calls=4)
 
-
-    # determine pssm tensorshape
-    if hparams.model == "lm":
-        pssm_shape = tf.TensorShape([1, hparams.num_pssm_features])
-        target_shape = tf.TensorShape([None, 23])
-    else: #if hparams.model == "bdrnn":
-        pssm_shape = tf.TensorShape([None, hparams.num_pssm_features])
-        target_shape = tf.TensorShape([None, 10])
-
-    dataset = dataset.apply(tf.contrib.data.bucket_by_sequence_length(
-        lambda id, seq_len, seq, phyche, pssm, tar: seq_len,
-        [50, 150, 250, 350, # buckets
-         450, 550, 650],
-        [batch_size, batch_size, batch_size, # all buckets have the
-         batch_size, batch_size, batch_size, # the same batch size
-         batch_size, batch_size],
-        padded_shapes=(tf.TensorShape([]), # id
-                       tf.TensorShape([]), # len
-                       tf.TensorShape([None, 23]), # seq
-                       tf.TensorShape([None, hparams.num_phyche_features]), # phyche
-                       pssm_shape, # pssm
-                       target_shape, # target (ss or seq)
-                       )))
-    else:
-        dataset = dataset.map(lambda id, seq_len, seq, phyche, pssm, tar: \
-                              ((id, seq_len, seq, phyche, pssm),
-                              tar))
+        dataset = dataset.apply(tf.contrib.data.bucket_by_sequence_length(
+            lambda id, seq_len, seq, phyche, pssm, tar: seq_len,
+            [50, 150, 250, 350, # buckets
+             450, 550, 650],
+            [batch_size, batch_size, batch_size, # all buckets have the
+             batch_size, batch_size, batch_size, # the same batch size
+             batch_size, batch_size],
+            padded_shapes=(tf.TensorShape([]), # id
+                           tf.TensorShape([]), # len
+                           tf.TensorShape([None, 23]), # seq
+                           tf.TensorShape([None, hparams.num_phyche_features]), # phyche
+                           tf.TensorShape([None, hparams.num_pssm_features]), # pssm
+                           tf.TensorShape([None, 10]), # ss
+                           )))
 
     # prefetch on CPU
     dataset = dataset.prefetch(2)
