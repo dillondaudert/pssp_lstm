@@ -25,17 +25,10 @@ def main():
                                  be saved")
     tr_parser.add_argument("-l", "--logging", action="store_true",
                            help="toggle to enable tf.summary logs (disabled by default)")
-    tr_parser.add_argument("-m", "--model", type=str, choices=["lm", "bdrnn"], required=True,
+    tr_parser.add_argument("-m", "--model", type=str, choices=["bdlm", "bdrnn"], required=True,
                            help="which kind of model to train")
-    tr_parser.add_argument("--large", action="store_true", default=False,
-                           help="toggle whether to use the large version of the model")
-    tr_parser.add_argument("--lm_kind", type=str, choices=["fw", "bw"], default="fw",
-                           help="whether to train a forward or backward language model\
-                                   (default: forward)")
-    tr_parser.add_argument("--lm_fw_ckpt", type=str, default="",
-                           help="the path to a pretrained forward language model checkpoint")
-    tr_parser.add_argument("--lm_bw_ckpt", type=str, default="",
-                           help="the path to a pretrained backward language model checkpoint")
+    tr_parser.add_argument("--bdlm_ckpt", type=str, default="",
+                           help="the path to a pretrained language model checkpoint")
     tr_parser.add_argument("--fixed_lm", action="store_true",
                            help="this flag indicates that the pretrained models should be\
                                  fixed during fine-tuning.")
@@ -47,43 +40,30 @@ def main():
                            help="the directory where the cpdb_513.tfrecords file is located")
     ev_parser.add_argument("ckpt", type=str, help="a tf model checkpoint file.")
 
-    ev_parser.add_argument("-m", "--model", type=str, choices=["lm", "bdrnn"], required=True,
+    ev_parser.add_argument("-m", "--model", type=str, choices=["bdlm", "bdrnn"], required=True,
                            help="which kind of model to train")
-
-    ev_parser.add_argument("--large", action="store_true", default=False,
-                           help="toggle whether to use the large version of the model")
-    ev_parser.add_argument("--fixed_lm", action="store_true",
-                           help="this flag indicates that the pretrained models should be\
-                                 fixed during fine-tuning.")
 
     ev_parser.set_defaults(entry="evaluate")
 
     args = parser.parse_args()
 
     if args.entry == "train":
-        model_hparams = args.model if not args.large else args.model+"_large"
+        model_hparams = args.model
         HPARAMS = hparams[model_hparams]
-        HPARAMS.lm_fw_ckpt = args.lm_fw_ckpt
-        HPARAMS.lm_bw_ckpt = args.lm_bw_ckpt
         print("Model: %s, HPARAMS: %s" % (args.model, model_hparams))
 
         if args.model == "bdrnn":
-            if (args.lm_fw_ckpt != "" and args.lm_bw_ckpt == "") or (args.lm_fw_ckpt == "" and args.lm_bw_ckpt != ""):
-                print("Both lm_fw_ckpt and lm_bw_ckpt must either be paths or left out. Quitting.")
-                quit()
-            elif args.lm_fw_ckpt != "":
+            if args.bdlm_ckpt != "":
                 HPARAMS.pretrained = True
-        else:
-            HPARAMS.lm_kind = args.lm_kind
 
         # run training
         HPARAMS.logging = args.logging
-        HPARAMS.fixed_lm = args.fixed_lm
 
         logpath = Path(args.logdir)
         HPARAMS.logdir = str(logpath.absolute())
         HPARAMS.train_file = str(Path(args.datadir, "cpdb_train.tfrecords").absolute())
         HPARAMS.valid_file = str(Path(args.datadir, "cpdb_valid.tfrecords").absolute())
+        HPARAMS.test_file = str(Path(args.datadir, "cpdb513_test.tfrecords").absolute())
 
         pretrain(HPARAMS)
 
@@ -92,8 +72,6 @@ def main():
         HPARAMS = hparams[model_hparams]
         HPARAMS.valid_file = str(Path(args.datadir, "cpdb_513.tfrecords").absolute())
         HPARAMS.model_ckpt = str(Path(args.ckpt).absolute())
-        HPARAMS.lm_fw_ckpt = ""
-        HPARAMS.lm_bw_ckpt = ""
         HPARAMS.pretrained = True
 
         evaluate(HPARAMS)
