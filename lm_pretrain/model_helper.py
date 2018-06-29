@@ -16,6 +16,7 @@ def create_model(hparams, mode):
     """
 
     graph = tf.Graph()
+    sess = tf.Session(graph=graph)
 
     with graph.as_default():
         with tf.name_scope("input_pipe"):
@@ -24,8 +25,8 @@ def create_model(hparams, mode):
         model = hparams.Model(hparams=hparams,
                               iterator=iterator,
                               mode=mode)
+        sess.run([tf.tables_initializer()])
 
-    sess = tf.Session(graph=graph)
 
     modeltuple = ModelTuple(graph=graph, iterator=iterator,
                             model=model, session=sess)
