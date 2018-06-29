@@ -25,12 +25,12 @@ def create_dataset(hparams, mode):
             input_file = hparams.train_file
             shuffle = True
             batch_size = hparams.batch_size
-            num_epochs = -1
+            num_epochs = hparams.num_epochs
         elif mode == tf.contrib.learn.ModeKeys.EVAL:
             input_file = hparams.valid_file
             shuffle = False
             batch_size = hparams.batch_size
-            num_epochs = -1 # indefinitely
+            num_epochs = 1
         else:
             print("INFER mode not supported.")
             quit()
@@ -84,7 +84,7 @@ def create_dataset(hparams, mode):
             seq_in = tf.nn.embedding_lookup(prot_eye, seq_in)
             seq_out = tf.nn.embedding_lookup(prot_eye, seq)
 
-            return id, seq_len, seq_in, phyche, seq_out
+            return id, seq_len, seq_in, phyche, seq_in#NOTE: TEMPORARY REPLACE seq_out
 
         dataset = dataset.map(
                 lambda id, seq_len, seq, phyche: lm_map_func(id, seq_len, seq, phyche),
