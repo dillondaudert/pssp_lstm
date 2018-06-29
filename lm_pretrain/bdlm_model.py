@@ -48,10 +48,12 @@ class BDLMModel(BaseModel):
                     cell_fw=fw_cells,
                     cell_bw=bw_cells,
                     inputs=x,
-                    sequence_length=lens,
+                    sequence_length=lens+tf.constant(2, dtype=tf.int32),
                     dtype=tf.float32)
 
-            # TODO: Concatenate nonsense
+            # output_fw/bw are [batch, time, feats]
+            output_fw = output_fw[:, :-2, :]
+            output_bw = output_bw[:, 2:, :]
             rnn_out = tf.concat([output_fw, output_bw], axis=-1)
 
             dense1 = tf.layers.dense(inputs=rnn_out,

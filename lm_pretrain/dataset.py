@@ -76,7 +76,6 @@ def create_dataset(hparams, mode):
             seq = tf.cast(hparams.prot_lookup_table.lookup(seq), tf.int32)
             # prepend/append SOS/EOS tokens
             seq_in = tf.concat(([sos_id], seq, [eos_id]), 0)
-            seq_len = seq_len + tf.constant(2, dtype=tf.int32)
             # prepend zeros to phyche
             phyche_pad = tf.zeros(shape=(1, hparams.num_phyche_features))
             phyche = tf.concat([phyche_pad, phyche, phyche_pad], 0)
@@ -84,14 +83,14 @@ def create_dataset(hparams, mode):
             seq_in = tf.nn.embedding_lookup(prot_eye, seq_in)
             seq_out = tf.nn.embedding_lookup(prot_eye, seq)
 
-            return id, seq_len, seq_in, phyche, seq_in#NOTE: TEMPORARY REPLACE seq_out
+            return id, seq_len, seq_in, phyche, seq_out
 
         dataset = dataset.map(
                 lambda id, seq_len, seq, phyche: lm_map_func(id, seq_len, seq, phyche),
                 num_parallel_calls=4)
 
         dataset = dataset.apply(tf.contrib.data.bucket_by_sequence_length(
-            lambda id, seq_len, seq_in, phyche, seq_out: seq_len,
+            lambda id, seq_len, seq_in, phyche, seq_out: seq_len+tf.constant(2, dtype=tf.int32),
             [50, 150, 250, 350, # buckets
              450, 550, 650],
             [batch_size, batch_size, batch_size, # all buckets have the
@@ -117,7 +116,6 @@ def create_dataset(hparams, mode):
             ss = tf.cast(hparams.struct_lookup_table.lookup(ss), tf.int32)
             # prepend/append sos/eos tokens and add 2 to length
             seq = tf.concat(([sos_id], seq, [eos_id]), 0)
-            seq_len = seq_len + tf.constant(2, dtype=tf.int32)
             # prepend zeros to phyche
             phyche_pad = tf.zeros(shape=(1, hparams.num_phyche_features))
             phyche = tf.concat([phyche_pad, phyche], 0)
@@ -135,7 +133,7 @@ def create_dataset(hparams, mode):
                 num_parallel_calls=4)
 
         dataset = dataset.apply(tf.contrib.data.bucket_by_sequence_length(
-            lambda id, seq_len, seq, phyche, pssm, tar: seq_len,
+            lambda id, seq_len, seq, phyche, pssm, tar: seq_len+tf.constant(2, dtype=tf.int32),
             [50, 150, 250, 350, # buckets
              450, 550, 650],
             [batch_size, batch_size, batch_size, # all buckets have the
