@@ -3,6 +3,7 @@
 from pathlib import Path
 import tensorflow as tf, numpy as np
 from .parsers import cpdb_parser, cUR50_parser
+from .lookup import create_lookup_table
 
 def create_dataset(hparams, mode):
     """
@@ -66,7 +67,7 @@ def create_dataset(hparams, mode):
     eos_id = tf.cast(hparams.prot_lookup_table.lookup(tf.constant("EOS")), tf.int32)
 
 
-    if hparams.model == "lm":
+    if hparams.model == "bdlm":
         def lm_map_func(id, seq_len, seq, phyche):
             prot_eye = tf.eye(prot_size)
             # split characters
