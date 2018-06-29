@@ -42,7 +42,7 @@ def pretrain(hparams):
     train_tuple.graph.finalize()
 
     profile_next_step = False
-    eval_step = 100
+    eval_step = 400
     patience = 0
     max_patience = hparams.num_keep_ckpts-1
     best_eval_loss = np.Inf
