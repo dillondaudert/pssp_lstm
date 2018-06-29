@@ -3,7 +3,7 @@
 from time import process_time
 from pathlib import Path
 import tensorflow as tf, numpy as np
-from .model import create_model
+from .model_helper import create_model
 
 def pretrain(hparams):
     """Build and train the model as specified in hparams"""
@@ -37,9 +37,9 @@ def pretrain(hparams):
 
     # TODO: move this to LMandBDRNNModel.restore or some such function
     # restore the lm parameters
-    if hparams.lm_fw_ckpt != "" and hparams.model == "bdrnn":
-        train_tuple.model.lm_fw_saver.restore(train_tuple.session, hparams.lm_fw_ckpt)
-        train_tuple.model.lm_bw_saver.restore(train_tuple.session, hparams.lm_bw_ckpt)
+    #if hparams.lm_fw_ckpt != "" and hparams.model == "bdrnn":
+    #    train_tuple.model.lm_fw_saver.restore(train_tuple.session, hparams.lm_fw_ckpt)
+    #    train_tuple.model.lm_bw_saver.restore(train_tuple.session, hparams.lm_bw_ckpt)
 
     start_time = process_time()
     # initialize the training dataset
