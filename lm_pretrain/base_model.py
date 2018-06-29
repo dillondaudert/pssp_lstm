@@ -38,9 +38,7 @@ class BaseModel(object):
         # training update ops
         if self.mode == tf.contrib.learn.ModeKeys.TRAIN:
 
-            opt = tf.train.AdadeltaOptimizer(learning_rate=1.0,
-                                             rho=0.95,
-                                             epsilon=1e-06)
+            opt = tf.train.RMSPropOptimizer(learning_rate=0.001)
 
             # gradients
             gradients = tf.gradients(self.train_loss,
