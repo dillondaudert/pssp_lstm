@@ -2,19 +2,15 @@
 # basic example of training a network end-to-end
 from time import process_time
 from pathlib import Path
-import tensorflow as tf, numpy as np
+import tensorflow as tf
+import numpy as np
+from tensorflow.contrib.tensorboard.plugins import projector
 from .model_helper import create_model
 
 def pretrain(hparams):
     """Build and train the model as specified in hparams"""
 
-    ckptsdir = str(Path(hparams.logdir, "ckpts"))
-
-    try:
-        tf.gfile.MakeDirs(ckptsdir)
-    except:
-        print("Exception encountered when trying to make directory %s" % (ckptsdir))
-        quit()
+    ckptsdir = hparams.logdir
 
     # build training and eval graphs
     train_tuple = create_model(hparams, tf.contrib.learn.ModeKeys.TRAIN)
@@ -32,6 +28,12 @@ def pretrain(hparams):
                                                train_tuple.graph,
                                                max_queue=25,
                                                flush_secs=30)
+        # NOTE: visualize embeddings
+        config = projector.ProjectorConfig()
+        embedding_config = config.embeddings.add()
+        embedding_config.tensor_name = eval_tuple.graph.get_tensor_by_name("bdlm/in_embed/kernel:0").name
+        embedding_config.metadata_path = "/home/dillon/github/pssp_lstm/lm_pretrain/aa_metadata.tsv"
+        projector.visualize_embeddings(summary_writer, config)
 
     train_tuple.session.run([initializer])
 
@@ -74,7 +76,7 @@ def pretrain(hparams):
                 profile_next_step = True
                 # Do one evaluation
                 checkpoint_path = train_tuple.model.saver.save(train_tuple.session,
-                                                               ckptsdir+"/ckpt",
+                                                               ckptsdir+"model.ckpt",
                                                                global_step=global_step)
                 eval_tuple.model.saver.restore(eval_tuple.session, checkpoint_path)
                 eval_tuple.session.run([eval_tuple.iterator.initializer, local_initializer])

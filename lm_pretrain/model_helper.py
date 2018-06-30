@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow.contrib.rnn import LSTMCell, GRUCell, MultiRNNCell
+from tensorflow.contrib.rnn import LSTMBlockCell, GRUBlockCell, MultiRNNCell
 from custom_rnn.stlstm import STLSTMCell
 from collections import namedtuple
 from .dataset import create_dataset
@@ -72,9 +72,9 @@ def _create_rnn_cell(cell_type, num_units, num_layers, mode, as_list=False):
     """
 
     if cell_type == "gru":
-        Cell = GRUCell
+        Cell = GRUBlockCell
     else:
-        Cell = LSTMCell
+        Cell = LSTMBlockCell
 
     cell_list = []
     for i in range(num_layers):
