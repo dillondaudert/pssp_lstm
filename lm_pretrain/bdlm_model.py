@@ -31,16 +31,18 @@ class BDLMModel(BaseModel):
                                        use_bias=False,
                                        name="in_embed")(seq_in)
 
-            x = tf.concat([in_embed, phyche], axis=-1)
+            x = tf.concat([in_embed, phyche], axis=-1, name="in_embed_all")
 
             fw_cells = _create_rnn_cell(cell_type=hparams.cell_type,
                                         num_units=hparams.num_lm_units,
                                         num_layers=hparams.num_lm_layers,
-                                        mode=mode)
+                                        mode=mode,
+                                        residual=hparams.lm_residual)
             bw_cells = _create_rnn_cell(cell_type=hparams.cell_type,
                                         num_units=hparams.num_lm_units,
                                         num_layers=hparams.num_lm_layers,
-                                        mode=mode)
+                                        mode=mode,
+                                        residual=hparams.lm_residual)
 
             #cells.build([None, hparams.num_features]) #hparams.input_proj_size])
 
