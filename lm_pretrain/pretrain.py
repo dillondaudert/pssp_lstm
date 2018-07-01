@@ -76,7 +76,7 @@ def pretrain(hparams):
                 profile_next_step = True
                 # Do one evaluation
                 checkpoint_path = train_tuple.model.saver.save(train_tuple.session,
-                                                               ckptsdir+"model.ckpt",
+                                                               ckptsdir+"/model.ckpt",
                                                                global_step=global_step)
                 eval_tuple.model.saver.restore(eval_tuple.session, checkpoint_path)
                 eval_tuple.session.run([eval_tuple.iterator.initializer, local_initializer])
