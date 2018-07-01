@@ -58,7 +58,7 @@ def _get_initial_state(state_sizes: list, batch_size, name):
 
     return init_states
 
-def _create_rnn_cell(cell_type, num_units, num_layers, mode, as_list=False):
+def _create_rnn_cell(cell_type, num_units, num_layers, mode, residual=False, as_list=False):
     """Create a list of RNN cells.
 
     Args:
@@ -81,6 +81,9 @@ def _create_rnn_cell(cell_type, num_units, num_layers, mode, as_list=False):
         single_cell = Cell(name=cell_type,
                            num_units=num_units)
 #                           initializer=tf.glorot_uniform_initializer)
+        if residual and i > 0:
+            single_cell = tf.nn.rnn_cell.ResidualWrapper(
+                    cell=single_cell)
         cell_list.append(single_cell)
 
     if not as_list:
