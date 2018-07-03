@@ -57,7 +57,8 @@ class BDLMModel(BaseModel):
                     cell_bw=bw_cells,
                     inputs=x,
                     sequence_length=lens+tf.constant(2, dtype=tf.int32),
-                    dtype=tf.float32)
+                    dtype=tf.float32,
+                    swap_memory=False)
 
             # output_fw/bw are [batch, time, feats]
             output_fw = output_fw[:, :-2, :]

@@ -59,7 +59,7 @@ def create_dataset(hparams, mode):
     dataset = dataset.cache()
 
     if shuffle:
-        dataset = dataset.apply(tf.contrib.data.shuffle_and_repeat(buffer_size=batch_size*100, count=num_epochs))
+        dataset = dataset.apply(tf.contrib.data.shuffle_and_repeat(buffer_size=200000, count=num_epochs))
     else:
         dataset = dataset.repeat(num_epochs)
 
