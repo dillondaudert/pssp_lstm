@@ -58,23 +58,15 @@ class BDLMModel(BaseModel):
             output_bw = output_bw[:, 2:, :]
             rnn_out = tf.concat([output_fw, output_bw], axis=-1)
 
-            dense1 = tf.layers.dense(inputs=rnn_out,
-                                     units=hparams.num_lm_dense_units,
-                                     kernel_initializer=tf.glorot_uniform_initializer(),
-                                     activation=tf.nn.relu)
-            dense2 = tf.layers.dense(inputs=dense1,
-                                     units=100,
-                                     kernel_initializer=tf.glorot_uniform_initializer(),
-                                     activation=tf.nn.relu)
             out_embed = tf.layers.Dense(units=hparams.out_embed_units,
                                         kernel_initializer=tf.glorot_normal_initializer(),
-                                        name="out_embed")(dense2)
+                                        use_bias=False,
+                                        name="out_embed")(rnn_out)
 
 
         with tf.variable_scope("lm_out", dtype=tf.float32):
             logits = tf.layers.dense(inputs=out_embed,
-                                     units=hparams.num_labels,
-                                     use_bias=False)
+                                     units=hparams.num_labels)
 
         # mask out entries longer than target sequence length
         mask = tf.sequence_mask(lens, dtype=tf.float32)
