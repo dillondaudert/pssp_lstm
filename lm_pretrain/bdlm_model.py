@@ -68,6 +68,9 @@ class BDLMModel(BaseModel):
                                         kernel_initializer=tf.glorot_normal_initializer(),
                                         use_bias=False,
                                         name="out_embed")(rnn_out)
+            out_embed = tf.layers.dropout(inputs=out_embed,
+                                          rate=hparams.dropout,
+                                          training=mode == tf.contrib.learn.ModeKeys.TRAIN)
 
 
         with tf.variable_scope("lm_out", dtype=tf.float32):
