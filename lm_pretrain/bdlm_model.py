@@ -30,6 +30,10 @@ class BDLMModel(BaseModel):
                                        kernel_initializer=tf.glorot_uniform_initializer(),
                                        use_bias=False,
                                        name="in_embed")(seq_in)
+            in_embed = tf.layers.dropout(inputs=in_embed,
+                                         rate=hparams.dropout,
+                                         training=mode == tf.contrib.learn.ModeKeys.TRAIN,
+                                         name="in_embed_drop")
 
             x = tf.concat([in_embed, phyche], axis=-1, name="in_embed_all")
 
@@ -37,12 +41,14 @@ class BDLMModel(BaseModel):
                                         num_units=hparams.num_lm_units,
                                         num_layers=hparams.num_lm_layers,
                                         mode=mode,
-                                        residual=hparams.lm_residual)
+                                        residual=hparams.lm_residual,
+                                        recurrent_dropout=hparams.recurrent_dropout)
             bw_cells = _create_rnn_cell(cell_type=hparams.cell_type,
                                         num_units=hparams.num_lm_units,
                                         num_layers=hparams.num_lm_layers,
                                         mode=mode,
-                                        residual=hparams.lm_residual)
+                                        residual=hparams.lm_residual,
+                                        recurrent_dropout=hparams.recurrent_dropout)
 
             #cells.build([None, hparams.num_features]) #hparams.input_proj_size])
 
