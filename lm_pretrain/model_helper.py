@@ -58,7 +58,7 @@ def _get_initial_state(state_sizes: list, batch_size, name):
 
     return init_states
 
-def _create_rnn_cell(cell_type, num_units, num_layers, mode, residual=False, as_list=False):
+def _create_rnn_cell(cell_type, num_units, num_layers, mode, residual=False, as_list=False, recurrent_dropout=0.0):
     """Create a list of RNN cells.
 
     Args:
@@ -84,6 +84,12 @@ def _create_rnn_cell(cell_type, num_units, num_layers, mode, residual=False, as_
         if residual and i > 0:
             single_cell = tf.nn.rnn_cell.ResidualWrapper(
                     cell=single_cell)
+        if recurrent_dropout > 0.:
+            single_cell = tf.contrib.rnn.DropoutWrapper(
+                    cell=single_cell,
+                    state_keep_prob=1.0-recurrent_dropout if mode == tf.contrib.learn.ModeKeys.TRAIN else 1.0,
+                    #variational_recurrent=True,
+                    )
         cell_list.append(single_cell)
 
     if not as_list:
