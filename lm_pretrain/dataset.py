@@ -129,7 +129,7 @@ def create_dataset(hparams, mode):
                            tf.TensorShape([None, hparams.num_phyche_features]), # phyche
                            tf.TensorShape([None, 23]), # seq_out
                            tf.TensorShape([None, hparams.num_pssm_features]), # pssm
-                           tf.TensorShape([None, 10]), # ss
+                           tf.TensorShape([None, hparams.num_labels]), # ss
                            )))
 
     # prefetch on CPU
