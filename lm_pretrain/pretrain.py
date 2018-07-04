@@ -12,6 +12,17 @@ def pretrain(hparams):
 
     ckptsdir = hparams.logdir
 
+    # write hparams to directory
+    hparam_str = "HPARAMS\n %s\n" % (repr(hparams))
+    if "lm_hparams" in vars(hparams):
+        hparam_str = hparam_str + "LM_HPARAMS\n%s\n" % (repr(hparams.lm_hparams))
+    try:
+        hparam_file = Path(ckptsdir, "hparams.txt")
+        hparam_file.write_text(hparam_str)
+    except FileNotFoundError as e:
+        print("%s not found; try creating %s before running this program." % (str(hparam_file), ckptsdir))
+        print(e)
+
     # build training and eval graphs
     train_tuple = create_model(hparams, tf.contrib.learn.ModeKeys.TRAIN)
     eval_tuple = create_model(hparams, tf.contrib.learn.ModeKeys.EVAL)
@@ -33,9 +44,6 @@ def pretrain(hparams):
         embedding_config = config.embeddings.add()
         embedding_config.tensor_name = eval_tuple.graph.get_tensor_by_name("bdlm/in_embed/kernel:0").name
         embedding_config.metadata_path = "/home/dillon/github/pssp_lstm/lm_pretrain/aa_metadata.tsv"
-        #embedding_config_2 = config.embeddings.add()
-        #embedding_config_2.tensor_name = eval_tuple.graph.get_tensor_by_name("bdlm/in_embed_all:0").name
-        #embedding_config_2.metadata_path = "/home/dillon/github/pssp_lstm/lm_pretrain/aa_metadata.tsv"
         projector.visualize_embeddings(summary_writer, config)
 
     train_tuple.session.run([initializer])
