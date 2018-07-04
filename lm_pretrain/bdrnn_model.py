@@ -57,6 +57,7 @@ class BDRNNModel(BaseModel):
                                         mode=mode,
                                         residual=hparams.residual,
                                         recurrent_dropout=hparams.recurrent_dropout,
+                                        as_list=True,
                                         )
 
             bw_cells = _create_rnn_cell(cell_type=hparams.cell_type,
@@ -64,17 +65,16 @@ class BDRNNModel(BaseModel):
                                         num_layers=hparams.num_layers,
                                         mode=mode,
                                         residual=hparams.residual,
-                                        recurrent_dropout=hparams.recurrent_dropout
+                                        recurrent_dropout=hparams.recurrent_dropout,
+                                        as_list=True,
                                         )
 
             # run bdrnn
             combined_outputs, output_state_fw, output_state_bw = \
                     tf.contrib.rnn.stack_bidirectional_dynamic_rnn(cells_fw=fw_cells,
                                                                    cells_bw=bw_cells,
-                                                                   inputs=lm_outputs,
-                                                                   sequence_length=seq_len,
-                                                                   initial_states_fw=init_state_fw,
-                                                                   initial_states_bw=init_state_bw,
+                                                                   inputs=x,
+                                                                   sequence_length=lens,
                                                                    dtype=tf.float32,
                                                                    scope=bdrnn_scope)
             # dense output layers
@@ -86,13 +86,13 @@ class BDRNNModel(BaseModel):
                                       rate=hparams.dropout,
                                       training=mode==tf.contrib.learn.ModeKeys.TRAIN)
 
-            logits = tf.layers.dense(inputs=drop2,
+            logits = tf.layers.dense(inputs=drop1,
                                      units=hparams.num_labels,
                                      use_bias=False,
                                      name="bdrnn_logits")
 
         # mask out entries longer than target sequence length
-        mask = tf.sequence_mask(seq_len, dtype=tf.float32)
+        mask = tf.sequence_mask(lens, dtype=tf.float32)
 
         crossent = tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits,
                                                               labels=ss,
@@ -105,13 +105,15 @@ class BDRNNModel(BaseModel):
         update_ops = []
         if mode == tf.contrib.learn.ModeKeys.EVAL:
             # mean eval loss
-            loss, loss_update = tf.metrics.mean(values=loss)
+            loss, loss_update = tf.metrics.mean(values=loss,
+                                                name="ss_loss")
 
             predictions = tf.argmax(input=logits, axis=-1)
-            tgt_labels = tf.argmax(input=tgt_outputs, axis=-1)
+            tgt_labels = tf.argmax(input=ss, axis=-1)
             acc, acc_update = tf.metrics.accuracy(predictions=predictions,
                                                   labels=tgt_labels,
-                                                  weights=mask)
+                                                  weights=mask,
+                                                  name="ss_accuracy")
             # confusion matrix
             targets_flat = tf.reshape(tgt_labels, [-1])
             predictions_flat = tf.reshape(predictions, [-1])
@@ -119,10 +121,11 @@ class BDRNNModel(BaseModel):
             cm, cm_update = streaming_confusion_matrix(labels=targets_flat,
                                                        predictions=predictions_flat,
                                                        num_classes=hparams.num_labels,
-                                                       weights=mask_flat)
-            tf.add_to_collection("eval", cm_summary(cm, hparams.num_labels))
-            metrics = [acc, cm]
-            update_ops = [loss_update, acc_update, cm_update]
+                                                       weights=mask_flat,
+                                                       prefix="ss_")
+            tf.add_to_collection("eval", cm_summary(cm, hparams.num_labels, prefix="ss_"))
+            metrics = [acc, cm]+lm_metrics
+            update_ops = [loss_update, acc_update, cm_update]+lm_update_ops
 
         return logits, loss, metrics, update_ops
 
