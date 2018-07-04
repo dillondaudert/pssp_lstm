@@ -33,9 +33,9 @@ def pretrain(hparams):
         embedding_config = config.embeddings.add()
         embedding_config.tensor_name = eval_tuple.graph.get_tensor_by_name("bdlm/in_embed/kernel:0").name
         embedding_config.metadata_path = "/home/dillon/github/pssp_lstm/lm_pretrain/aa_metadata.tsv"
-        embedding_config_2 = config.embeddings.add()
-        embedding_config_2.tensor_name = eval_tuple.graph.get_tensor_by_name("bdlm/in_embed_all:0").name
-        embedding_config_2.metadata_path = "/home/dillon/github/pssp_lstm/lm_pretrain/aa_metadata.tsv"
+        #embedding_config_2 = config.embeddings.add()
+        #embedding_config_2.tensor_name = eval_tuple.graph.get_tensor_by_name("bdlm/in_embed_all:0").name
+        #embedding_config_2.metadata_path = "/home/dillon/github/pssp_lstm/lm_pretrain/aa_metadata.tsv"
         projector.visualize_embeddings(summary_writer, config)
 
     train_tuple.session.run([initializer])
@@ -50,7 +50,7 @@ def pretrain(hparams):
     train_tuple.graph.finalize()
 
     profile_next_step = False
-    eval_step = 400
+    eval_step = hparams.eval_step
     patience = 0
     max_patience = hparams.num_keep_ckpts-1
     best_eval_loss = np.Inf
