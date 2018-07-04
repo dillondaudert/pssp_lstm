@@ -14,12 +14,20 @@ class BDLMModel(BaseModel):
 
     @staticmethod
     def _build_graph(hparams, inputs, mode, scope=None):
-        """Construct the train, evaluation, and inference graphs.
+        """Construct the train, evaluation graphs
         Args:
             hparams: The hyperparameters for configuration
+            inputs: An input tuple
+            mode: Training/Eval mode
         Returns:
             A tuple with (logits, loss, metrics, update_ops)
         """
+        (x, out_embed), logits, loss, metrics, update_ops = self._build_lm_graph(hparams, inputs, mode, scope)
+        return logits, loss, metrics, update_ops
+
+
+    @staticmethod
+    def _build_lm_graph(hparams, inputs, mode, scope=None):
 
         ids, lens, seq_in, phyche, seq_out = inputs
 
@@ -112,5 +120,5 @@ class BDLMModel(BaseModel):
             metrics = [acc, cm]
             update_ops = [loss_update, acc_update, cm_update]
 
-        return logits, loss, metrics, update_ops
+        return (x, out_embed), logits, loss, metrics, update_ops
 
