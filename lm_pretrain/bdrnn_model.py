@@ -27,13 +27,14 @@ class BDRNNModel(BaseModel):
 
         ids, lens, seq_in, phyche, seq_out, pssm, ss = inputs
 
-        if hparams.bdlm_ckpt != "":
+        if hparams.bdlm_ckpt != "" or hparams.pretrained:
             (lm_x, lm_out_embed), lm_logits, lm_loss, lm_metrics, lm_update_ops = \
                     BDLMModel._build_lm_graph(hparams.lm_hparams, (ids, lens, seq_in, phyche, seq_out), mode)
 
             x = tf.concat([lm_x[:, 1:-1, :], lm_out_embed, pssm], axis=-1, name="bdrnn_input")
 
             if not hparams.train_bdlm:
+                print("Stopping gradients to bdlm.")
                 x = tf.stop_gradient(x)
 
         else:
@@ -124,8 +125,8 @@ class BDRNNModel(BaseModel):
                                                        weights=mask_flat,
                                                        prefix="ss_")
             tf.add_to_collection("eval", cm_summary(cm, hparams.num_labels, prefix="ss_"))
-            metrics = [acc, cm]+lm_metrics
-            update_ops = [loss_update, acc_update, cm_update]+lm_update_ops
+            metrics = [acc, cm]
+            update_ops = [loss_update, acc_update, cm_update]
 
         return logits, loss, metrics, update_ops
 
