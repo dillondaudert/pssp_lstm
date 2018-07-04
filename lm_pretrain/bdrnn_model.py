@@ -28,8 +28,11 @@ class BDRNNModel(BaseModel):
         ids, lens, seq_in, phyche, seq_out, pssm, ss = inputs
 
         if hparams.bdlm_ckpt != "" or hparams.pretrained:
+            # if we aren't fine-tuning the bdlm, set lm_mode to eval
+            lm_mode = mode if hparams.train_bdlm else tf.contrib.learn.ModeKeys.EVAL
+
             (lm_x, lm_out_embed), lm_logits, lm_loss, lm_metrics, lm_update_ops = \
-                    BDLMModel._build_lm_graph(hparams.lm_hparams, (ids, lens, seq_in, phyche, seq_out), mode)
+                    BDLMModel._build_lm_graph(hparams.lm_hparams, (ids, lens, seq_in, phyche, seq_out), lm_mode)
 
             x = tf.concat([lm_x[:, 1:-1, :], lm_out_embed, pssm], axis=-1, name="bdrnn_input")
 
