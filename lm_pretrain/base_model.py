@@ -66,9 +66,8 @@ class BaseModel(object):
 
 
         self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=hparams.num_keep_ckpts)
-        print("BaseModel is expected hparams.lm_ckpt")
-        if hparams.lm_ckpt != "":
-            self.lm_saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="bdlm"))
+        if hparams.bdlm_ckpt != "":
+            self.bdlm_saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="bdlm"))
 
     @staticmethod
     @abc.abstractmethod
@@ -82,6 +81,7 @@ class BaseModel(object):
             A tuple with (logits, loss, metrics, update_ops)
         """
         pass
+
 
     def train(self, sess):
         """Do a single training step."""
