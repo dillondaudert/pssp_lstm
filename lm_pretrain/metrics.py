@@ -2,7 +2,7 @@
 
 import tensorflow as tf
 
-def streaming_confusion_matrix(labels, predictions, num_classes, weights=None):
+def streaming_confusion_matrix(labels, predictions, num_classes, weights=None, prefix=""):
     """Calculates a confusion matrix.
 
     This creates local variables to track the confusion matrix statistics across
@@ -24,10 +24,10 @@ def streaming_confusion_matrix(labels, predictions, num_classes, weights=None):
                                      predictions=predictions,
                                      num_classes=num_classes,
                                      weights=weights,
-                                     name="cm")
+                                     name=prefix+"cm")
 
     # accumulator for the confusion matrix
-    confusion = tf.get_local_variable(name="confusion",
+    confusion = tf.get_local_variable(name=prefix+"confusion",
                                       shape=[num_classes, num_classes],
                                       dtype=tf.int32,
                                       initializer=tf.zeros_initializer)
@@ -38,11 +38,11 @@ def streaming_confusion_matrix(labels, predictions, num_classes, weights=None):
     confusion_image = tf.reshape(tf.cast(confusion, tf.float32),
                                  [1, num_classes, num_classes, 1])
 
-    summary = tf.summary.image('confusion_matrix', confusion_image)
+    summary = tf.summary.image(prefix+"confusion_matrix", confusion_image)
 
     return confusion, update_op
 
-def cm_summary(confusion, num_classes):
+def cm_summary(confusion, num_classes, prefix=""):
     """Create an image summary op for a confusion matrix.
     Returns:
         confusion_summary: Summary of the confusion matrix as an image
@@ -50,5 +50,5 @@ def cm_summary(confusion, num_classes):
     confusion_image = tf.reshape(tf.cast(confusion, tf.float32),
                                  [1, num_classes, num_classes, 1])
 
-    confusion_summary = tf.summary.image('confusion_matrix', confusion_image)
+    confusion_summary = tf.summary.image(prefix+"confusion_matrix", confusion_image)
     return confusion_summary
