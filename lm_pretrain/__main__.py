@@ -66,6 +66,8 @@ def main():
                 HPARAMS.train_bdlm = args.train_bdlm
                 if args.train_bdlm and args.loss_weights is not None:
                     HPARAMS.loss_weights = args.loss_weights
+                LM_HPARAMS = hparams["bdlm"]
+                HPARAMS.lm_hparams = LM_HPARAMS
             elif args.bdrnn_ckpt != "":
                 HPARAMS.bdrnn_ckpt = args.bdrnn_ckpt
 
