@@ -66,25 +66,33 @@ def create_dataset(hparams, mode):
     sos_id = tf.cast(hparams.prot_lookup_table.lookup(tf.constant("SOS")), tf.int32)
     eos_id = tf.cast(hparams.prot_lookup_table.lookup(tf.constant("EOS")), tf.int32)
 
+    def lm_map_func(id, seq_len, seq, phyche):
+        prot_eye = tf.eye(prot_size)
+        # split characters
+        seq = tf.string_split([seq], delimiter="").values
+        # map to integers
+        seq = tf.cast(hparams.prot_lookup_table.lookup(seq), tf.int32)
+        # prepend/append SOS/EOS tokens
+        seq_in = tf.concat(([sos_id], seq, [eos_id]), 0)
+        # prepend zeros to phyche
+        phyche_pad = tf.zeros(shape=(1, hparams.num_phyche_features))
+        phyche = tf.concat([phyche_pad, phyche, phyche_pad], 0)
+        # map to one-hots
+        seq_in = tf.nn.embedding_lookup(prot_eye, seq_in)
+        seq_out = tf.nn.embedding_lookup(prot_eye, seq)
+        return id, seq_len, seq_in, phyche, seq_out
+
+    def bdrnn_map_func(id, seq_len, seq, phyche, pssm, ss):
+        id, seq_len, seq_in, phyche, seq_out = lm_map_func(id, seq_len, seq, phyche)
+
+        struct_eye = tf.eye(struct_size)
+        ss = tf.string_split([ss], delimiter="").values
+        ss = tf.cast(hparams.struct_lookup_table.lookup(ss), tf.int32)
+        # map to one-hots
+        ss = tf.nn.embedding_lookup(struct_eye, ss)
+        return id, seq_len, seq_in, phyche, seq_out, pssm, ss
 
     if hparams.model == "bdlm":
-        def lm_map_func(id, seq_len, seq, phyche):
-            prot_eye = tf.eye(prot_size)
-            # split characters
-            seq = tf.string_split([seq], delimiter="").values
-            # map to integers
-            seq = tf.cast(hparams.prot_lookup_table.lookup(seq), tf.int32)
-            # prepend/append SOS/EOS tokens
-            seq_in = tf.concat(([sos_id], seq, [eos_id]), 0)
-            # prepend zeros to phyche
-            phyche_pad = tf.zeros(shape=(1, hparams.num_phyche_features))
-            phyche = tf.concat([phyche_pad, phyche, phyche_pad], 0)
-            # map to one-hots
-            seq_in = tf.nn.embedding_lookup(prot_eye, seq_in)
-            seq_out = tf.nn.embedding_lookup(prot_eye, seq)
-
-            return id, seq_len, seq_in, phyche, seq_out
-
         dataset = dataset.map(
                 lambda id, seq_len, seq, phyche: lm_map_func(id, seq_len, seq, phyche),
                 num_parallel_calls=4)
@@ -92,10 +100,10 @@ def create_dataset(hparams, mode):
         dataset = dataset.apply(tf.contrib.data.bucket_by_sequence_length(
             lambda id, seq_len, seq_in, phyche, seq_out: seq_len+tf.constant(2, dtype=tf.int32),
             [50, 150, 250, 350, # buckets
-             450, 550, 650],
+             450, 550, 650, 850],
             [batch_size, batch_size, batch_size, # all buckets have the
              batch_size, batch_size, batch_size, # the same batch size
-             batch_size, batch_size],
+             batch_size, batch_size, batch_size],
             padded_shapes=(tf.TensorShape([]), # id
                            tf.TensorShape([]), # len
                            tf.TensorShape([None, 23]), # seq
@@ -103,46 +111,23 @@ def create_dataset(hparams, mode):
                            tf.TensorShape([None, 23]), # seq_out
                            )))
 
-
     else:
-        def bdrnn_map_func(id, seq_len, seq, phyche, pssm, ss):
-            prot_eye = tf.eye(prot_size)
-            struct_eye = tf.eye(struct_size)
-            # split characters
-            seq = tf.string_split([seq], delimiter="").values
-            ss = tf.string_split([ss], delimiter="").values
-            # map to integers
-            seq = tf.cast(hparams.prot_lookup_table.lookup(seq), tf.int32)
-            ss = tf.cast(hparams.struct_lookup_table.lookup(ss), tf.int32)
-            # prepend/append sos/eos tokens and add 2 to length
-            seq = tf.concat(([sos_id], seq, [eos_id]), 0)
-            # prepend zeros to phyche
-            phyche_pad = tf.zeros(shape=(1, hparams.num_phyche_features))
-            phyche = tf.concat([phyche_pad, phyche], 0)
-            # prepend zeros to pssm
-            pssm_pad = tf.zeros(shape=(1, tf.shape(pssm)[1]))
-            pssm = tf.concat([pssm_pad, pssm], 0)
-            # map to one-hots
-            seq = tf.nn.embedding_lookup(prot_eye, seq)
-            ss = tf.nn.embedding_lookup(struct_eye, ss)
-
-            return id, seq_len, seq, phyche, pssm, ss
-
         dataset = dataset.map(
-                lambda id, seq_len, seq, phyche, pssm, ss: bdrnn_map_func(id, seq_len, seq, phyche, pssm, ss),
+                lambda id, seq_len, seq_in, phyche, seq_out, pssm, ss: bdrnn_map_func(id, seq_len, seq_in, phyche, seq_out, pssm, ss),
                 num_parallel_calls=4)
 
         dataset = dataset.apply(tf.contrib.data.bucket_by_sequence_length(
-            lambda id, seq_len, seq, phyche, pssm, tar: seq_len+tf.constant(2, dtype=tf.int32),
+            lambda id, seq_len, seq_in, phyche, seq_out, pssm, ss: seq_len+tf.constant(2, dtype=tf.int32),
             [50, 150, 250, 350, # buckets
-             450, 550, 650],
+             450, 550, 650, 850],
             [batch_size, batch_size, batch_size, # all buckets have the
              batch_size, batch_size, batch_size, # the same batch size
-             batch_size, batch_size],
+             batch_size, batch_size, batch_size],
             padded_shapes=(tf.TensorShape([]), # id
                            tf.TensorShape([]), # len
-                           tf.TensorShape([None, 23]), # seq
+                           tf.TensorShape([None, 23]), # seq_in
                            tf.TensorShape([None, hparams.num_phyche_features]), # phyche
+                           tf.TensorShape([None, 23]), # seq_out
                            tf.TensorShape([None, hparams.num_pssm_features]), # pssm
                            tf.TensorShape([None, 10]), # ss
                            )))
