@@ -4,7 +4,7 @@ from time import process_time
 from pathlib import Path
 import tensorflow as tf, numpy as np
 import pandas as pd
-from .model import create_model
+from .model_helper import create_model
 
 def evaluate(hparams):
     """Evaluate a trained model"""
@@ -17,7 +17,7 @@ def evaluate(hparams):
     print("Evaluating model on %s" % (hparams.valid_file))
 
     # do evaluation
-    eval_tuple.model.saver.restore(eval_tuple.session, hparams.model_ckpt)
+    eval_tuple.model.saver.restore(eval_tuple.session, hparams.ckpt)
     eval_tuple.session.run([eval_tuple.iterator.initializer, local_initializer])
     while True:
         try:
@@ -28,6 +28,6 @@ def evaluate(hparams):
                                                         eval_acc))
             print("Confusion Matrix (true label, predicted label):" )
             print(eval_cm)
-            df = pd.DataFrame(eval_cm)
-            df.to_csv("./conf_matr.csv", index=False)
+            #df = pd.DataFrame(eval_cm)
+            #df.to_csv("./conf_matr.csv", index=False)
             break
