@@ -27,11 +27,19 @@ def main():
                            help="toggle to enable tf.summary logs (disabled by default)")
     tr_parser.add_argument("-m", "--model", type=str, choices=["bdlm", "bdrnn"], required=True,
                            help="which kind of model to train")
-    tr_parser.add_argument("--bdlm_ckpt", type=str, default="",
+    tr_group = tr_parser.add_mutually_exclusive_group()
+    tr_group.add_argument("--bdrnn_ckpt", type=str, default="",
+                           help="the path to a pretrained bdrnn.")
+    tr_group.add_argument("--bdlm_ckpt", type=str, default="",
                            help="the path to a pretrained language model checkpoint")
-    tr_parser.add_argument("--fixed_lm", action="store_true",
+    tr_parser.add_argument("--train_bdlm", type=bool, default=True,
                            help="this flag indicates that the pretrained models should be\
                                  fixed during fine-tuning.")
+    tr_parser.add_argument("--loss_weights", nargs=2, type=float,
+                           help="if --train_bdlm=True (the default), then this flag takes\
+                                 2 arguments indicating the weights for the lm loss and pssp loss\
+                                 respectively. \
+                                 If --train_bdlm=False, this option is ignored.")
     tr_parser.set_defaults(entry="train")
 
     ev_parser = subparsers.add_parser("evaluate", help="Evaluate a trained model")
@@ -54,7 +62,12 @@ def main():
 
         if args.model == "bdrnn":
             if args.bdlm_ckpt != "":
-                HPARAMS.pretrained = True
+                HPARAMS.bdlm_ckpt = args.bdlm_ckpt
+                HPARAMS.train_bdlm = args.train_bdlm
+                if args.train_bdlm and args.loss_weights is not None:
+                    HPARAMS.loss_weights = args.loss_weights
+            elif args.bdrnn_ckpt != "":
+                HPARAMS.bdrnn_ckpt = args.bdrnn_ckpt
 
         # run training
         HPARAMS.logging = args.logging
@@ -68,11 +81,9 @@ def main():
         pretrain(HPARAMS)
 
     elif args.entry == "evaluate":
-        model_hparams = args.model if not args.large else args.model+"_large"
+        model_hparams = args.model
         HPARAMS = hparams[model_hparams]
-        HPARAMS.valid_file = str(Path(args.datadir, "cpdb_513.tfrecords").absolute())
-        HPARAMS.model_ckpt = str(Path(args.ckpt).absolute())
-        HPARAMS.pretrained = True
+        HPARAMS.ckpt = str(Path(args.ckpt).absolute())
 
         evaluate(HPARAMS)
 
