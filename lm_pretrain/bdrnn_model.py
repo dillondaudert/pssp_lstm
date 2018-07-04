@@ -4,6 +4,7 @@ A Bidirectional RNN Model class.
 
 import tensorflow as tf
 from .base_model import BaseModel
+from .bdlm_model import BDLMModel
 from .model_helper import _create_rnn_cell
 from .metrics import streaming_confusion_matrix, cm_summary
 
@@ -11,88 +12,60 @@ class BDRNNModel(object):
 
     def __init__(self, hparams, iterator, mode, scope=None):
         super(BDRNNModel, self).__init__(hparams, iterator, mode, scope=scope)
-        print("BDRNNModel needs updating to account for both LM and BDRNN inputs/outputs/loss")
 
-
-
-    def _build_graph(self, hparams, scope=None):
-        """Construct the train, evaluation, and inference graphs.
+    @staticmethod
+    def _build_graph(hparams, inputs, mode, scope=None):
+        """Construct the train, evaluation graphs.
         Args:
             hparams: The hyperparameters for configuration
+            inputs: A tuple representing an input sample
+            mode: Training/eval mode
             scope: The variable scope name for this subgraph
         Returns:
             A tuple with (logits, loss, metrics, update_ops)
         """
 
-        sample = self.iterator.get_next()
+        ids, lens, seq_in, phyche, seq_out, pssm, ss = inputs
 
-        inputs, tgt_outputs, seq_len = sample
+        if hparams.bdlm_ckpt != "":
+            (lm_x, lm_out_embed), lm_logits, lm_loss, lm_metrics, lm_update_ops = \
+                    BDLMModel._build_lm_graph(hparams.lm_hparams, (ids, lens, seq_in, phyche, seq_out), mode)
 
-        lm_fw_cell = []
-        lm_bw_cell = []
-        lm_init_state_fw = []
-        lm_init_state_bw = []
-        if hparams.pretrained:
-            with tf.variable_scope("lm_rnn", dtype=tf.float32):
-                # create lm
-                with tf.variable_scope("fw", dtype=tf.float32):
-                    lm_fw_cell = _create_rnn_cell(num_units=hparams.num_units,
-                                                  num_layers=1,
-                                                  mode=self.mode)
-                    # build the cell so it is in the correct scope
-                    # NOTE: this is hard coded
-                    lm_fw_cell[0].build([None, hparams.num_features])#hparams.input_proj_size])
-                    lm_init_state_fw = _get_initial_state([lm_fw_cell[0].state_size], tf.shape(inputs)[0], "lm")
-                with tf.variable_scope("bw", dtype=tf.float32):
-                    lm_bw_cell = _create_rnn_cell(num_units=hparams.num_units,
-                                                  num_layers=1,
-                                                  mode=self.mode)
-                    # NOTE: this is hard coded
-                    lm_bw_cell[0].build([None, hparams.num_features])#hparams.input_proj_size])
-                    lm_init_state_bw = _get_initial_state([lm_bw_cell[0].state_size], tf.shape(inputs)[0], "lm")
+            x = tf.concat([lm_x[:, 1:-1, :], lm_out_embed, pssm], axis=-1, name="bdrnn_input")
 
-                lm_outputs, lm_states = tf.nn.bidirectional_dynamic_rnn(lm_fw_cell[0],
-                                                                        lm_bw_cell[0],
-                                                                        inputs,
-                                                                        sequence_length=seq_len,
-                                                                        initial_state_fw=lm_init_state_fw[0],
-                                                                        initial_state_bw=lm_init_state_bw[0],
-                                                                        dtype=tf.float32)
-                # optionally fix the LM weights
-                if hparams.fixed_lm:
-                    print("Fixing pretrained language models.")
-                    lm_outputs = tf.stop_gradient(lm_outputs)
-                    lm_outputs = tf.concat([lm_outputs[0], lm_outputs[1]], axis=-1)
-                    lm_outputs = tf.layers.dense(lm_outputs,
-                                                 20,
-                                                 kernel_initializer=tf.glorot_uniform_initializer())
-                    lm_outputs = tf.concat([lm_outputs, inputs], axis=-1)
+            if not hparams.train_bdlm:
+                x = tf.stop_gradient(x)
+
+        else:
+            # strip off extra steps
+            seq_in = seq_in[:, 1:-1, :]
+            phyche = phyche[:, 1:-1, :]
+
+            in_embed = tf.layers.Dense(units=hparams.in_embed_units,
+                                       kernel_initializer=tf.glorot_uniform_initializer(),
+                                       use_bias=False,
+                                       name="in_embed")(seq_in)
+            # TODO: Make it so it's possible to equalize # params with bdlm?
+            x = tf.concat([in_embed, phyche, pssm], axis=-1)
 
 
-                    #lm_outputs = tf.concat([lm_outputs[0], lm_outputs[1], inputs], axis=-1)
-                else:
-                    lm_outputs = tf.concat(lm_outputs, axis=-1)
-
-
-
-        with tf.variable_scope("bdrnn", dtype=tf.float32) as bdrnn_scope:
+        with tf.variable_scope(scope or "bdrnn", dtype=tf.float32) as bdrnn_scope:
             # create bdrnn
-            with tf.variable_scope("fw", dtype=tf.float32):
-                fw_cells = _create_rnn_cell(num_units=hparams.num_units,
-                                            num_layers=hparams.num_layers,
-                                            mode=self.mode
-                                            )
-                init_state_fw = _get_initial_state([cell.state_size for cell in fw_cells],
-                                                   tf.shape(inputs)[0], "initial_state_fw")
+            fw_cells = _create_rnn_cell(cell_type=hparams.cell_type,
+                                        num_units=hparams.num_units,
+                                        num_layers=hparams.num_layers,
+                                        mode=self.mode,
+                                        residual=hparams.residual,
+                                        recurrent_dropout=hparams.recurrent_dropout,
+                                        )
 
-            with tf.variable_scope("bw", dtype=tf.float32):
-                bw_cells = _create_rnn_cell(num_units=hparams.num_units,
-                                            num_layers=hparams.num_layers,
-                                            mode=self.mode,
-                                            )
-
-                init_state_bw = _get_initial_state([cell.state_size for cell in bw_cells],
-                                                   tf.shape(inputs)[0], "initial_state_bw")
+            bw_cells = _create_rnn_cell(cell_type=hparams.cell_type,
+                                        num_units=hparams.num_units,
+                                        num_layers=hparams.num_layers,
+                                        mode=self.mode,
+                                        residual=hparams.residual,
+                                        recurrent_dropout=hparams.recurrent_dropout
+                                        )
 
             # run bdrnn
             combined_outputs, output_state_fw, output_state_bw = \
@@ -104,46 +77,29 @@ class BDRNNModel(object):
                                                                    initial_states_bw=init_state_bw,
                                                                    dtype=tf.float32,
                                                                    scope=bdrnn_scope)
-        # outputs is a tuple (output_fw, output_bw)
-        # output_fw/output_bw are tensors [batch_size, max_time, cell.output_size]
-        # outputs_states is a tuple (output_state_fw, output_state_bw) containing final states for
-        # forward and backward rnn
-
-        # concatenate the outputs of each direction
-        #combined_outputs = tf.concat([outputs[0], outputs[1]], axis=-1)
-
-        with tf.variable_scope("bdrnn_out", dtype=tf.float32):
             # dense output layers
             dense1 = tf.layers.dense(inputs=combined_outputs,
-                                     units=hparams.num_dense_units,
+                                     units=hparams.out_units,
                                      kernel_initializer=tf.glorot_uniform_initializer(),
-                                     activation=tf.nn.relu,
-                                     use_bias=True)
+                                     activation=tf.nn.relu)
             drop1 = tf.layers.dropout(inputs=dense1,
-                                      rate=hparams.dropout,
-                                      training=self.mode==tf.contrib.learn.ModeKeys.TRAIN)
-            dense2 = tf.layers.dense(inputs=drop1,
-                                     units=hparams.num_dense_units,
-                                     kernel_initializer=tf.glorot_uniform_initializer(),
-                                     activation=tf.nn.relu,
-                                     use_bias=True)
-            drop2 = tf.layers.dropout(inputs=dense2,
                                       rate=hparams.dropout,
                                       training=self.mode==tf.contrib.learn.ModeKeys.TRAIN)
 
             logits = tf.layers.dense(inputs=drop2,
                                      units=hparams.num_labels,
-                                     use_bias=False)
+                                     use_bias=False,
+                                     name="bdrnn_logits")
 
         # mask out entries longer than target sequence length
         mask = tf.sequence_mask(seq_len, dtype=tf.float32)
 
         crossent = tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits,
-                                                              labels=tgt_outputs,
+                                                              labels=ss,
                                                               name="crossent")
 
-        # divide loss by batch_size * mean(seq_len)
-        loss = tf.reduce_sum(crossent*mask)/tf.cast(hparams.batch_size, tf.float32)
+        seq_loss = tf.reduce_sum(crossent*mask, axis=1)/tf.cast(lens, tf.float32)
+        loss = tf.reduce_sum(seq_loss)/tf.cast(hparams.batch_size, tf.float32)
 
         metrics = []
         update_ops = []
