@@ -113,7 +113,7 @@ def create_dataset(hparams, mode):
 
     else:
         dataset = dataset.map(
-                lambda id, seq_len, seq_in, phyche, seq_out, pssm, ss: bdrnn_map_func(id, seq_len, seq_in, phyche, seq_out, pssm, ss),
+                lambda id, seq_len, seq_in, phyche, pssm, ss: bdrnn_map_func(id, seq_len, seq_in, phyche, pssm, ss),
                 num_parallel_calls=4)
 
         dataset = dataset.apply(tf.contrib.data.bucket_by_sequence_length(
