@@ -7,7 +7,7 @@ from tensorflow.python.ops import lookup_ops
 PROT_ALPHABET = ["A", "C", "D", "E", "F", "G", "H", "I", "K", "L", "M", "N",
                  "P", "Q", "R", "S", "T", "V", "W", "Y", "X", "SOS", "EOS"]
 
-STRUCT_ALPHABET = ["H", "E", "L", "T", "S", "G", "B", "I", "SOS", "EOS"]
+STRUCT_ALPHABET = ["H", "E", "L", "T", "S", "G", "B", "I"]
 
 def create_lookup_table(vocab, reverse=False):
     """Create a lookup table that turns amino acid or secondary structure
