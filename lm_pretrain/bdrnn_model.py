@@ -8,7 +8,7 @@ from .bdlm_model import BDLMModel
 from .model_helper import _create_rnn_cell
 from .metrics import streaming_confusion_matrix, cm_summary
 
-class BDRNNModel(object):
+class BDRNNModel(BaseModel):
 
     def __init__(self, hparams, iterator, mode, scope=None):
         super(BDRNNModel, self).__init__(hparams, iterator, mode, scope=scope)
@@ -54,7 +54,7 @@ class BDRNNModel(object):
             fw_cells = _create_rnn_cell(cell_type=hparams.cell_type,
                                         num_units=hparams.num_units,
                                         num_layers=hparams.num_layers,
-                                        mode=self.mode,
+                                        mode=mode,
                                         residual=hparams.residual,
                                         recurrent_dropout=hparams.recurrent_dropout,
                                         )
@@ -62,7 +62,7 @@ class BDRNNModel(object):
             bw_cells = _create_rnn_cell(cell_type=hparams.cell_type,
                                         num_units=hparams.num_units,
                                         num_layers=hparams.num_layers,
-                                        mode=self.mode,
+                                        mode=mode,
                                         residual=hparams.residual,
                                         recurrent_dropout=hparams.recurrent_dropout
                                         )
@@ -84,7 +84,7 @@ class BDRNNModel(object):
                                      activation=tf.nn.relu)
             drop1 = tf.layers.dropout(inputs=dense1,
                                       rate=hparams.dropout,
-                                      training=self.mode==tf.contrib.learn.ModeKeys.TRAIN)
+                                      training=mode==tf.contrib.learn.ModeKeys.TRAIN)
 
             logits = tf.layers.dense(inputs=drop2,
                                      units=hparams.num_labels,
@@ -103,7 +103,7 @@ class BDRNNModel(object):
 
         metrics = []
         update_ops = []
-        if self.mode == tf.contrib.learn.ModeKeys.EVAL:
+        if mode == tf.contrib.learn.ModeKeys.EVAL:
             # mean eval loss
             loss, loss_update = tf.metrics.mean(values=loss)
 
