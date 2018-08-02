@@ -9,6 +9,7 @@ from .model_helper import create_model
 def evaluate(hparams):
     """Evaluate a trained model"""
 
+    hparams.valid_file = hparams.test_file
     eval_tuple = create_model(hparams, tf.contrib.learn.ModeKeys.EVAL)
 
     with eval_tuple.graph.as_default():
