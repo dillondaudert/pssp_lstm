@@ -20,14 +20,15 @@ class BaseModel(object):
 
         tf.get_variable_scope().set_initializer(initializer)
 
-        inputs = self.iterator.get_next()
-        res = self._build_graph(hparams, inputs, mode, scope=scope)
+        self.inputs = self.iterator.get_next()
+        res = self._build_graph(hparams, self.inputs, mode, scope=scope)
 
         # Graph losses
         if self.mode == tf.contrib.learn.ModeKeys.TRAIN:
             self.train_loss = res[1]
 
         elif self.mode == tf.contrib.learn.ModeKeys.EVAL:
+            self.eval_probs = tf.nn.softmax(res[0])
             self.eval_loss = res[1]
             self.accuracy = res[2][0]
             self.confusion = res[2][1]
@@ -110,7 +111,9 @@ class BaseModel(object):
     def eval(self, sess):
         """Evaluate the model."""
         assert self.mode == tf.contrib.learn.ModeKeys.EVAL
-        return sess.run([self.eval_loss,
+        return sess.run([self.inputs,
+                         self.eval_probs,
+                         self.eval_loss,
                          self.accuracy,
                          self.confusion,
                          self.eval_summary,
