@@ -40,11 +40,20 @@ def create_dataset(hparams, mode):
         elif hparams.model == "bdrnn":
             parser = cpdb_parser
 
-        dataset = tf.data.TFRecordDataset(input_file)
+        files = tf.data.Dataset.list_files(input_file, shuffle=shuffle)
 
+        #dataset = tf.data.TFRecordDataset(input_file)
         # parse the records
         # NOTE: id, len, seq: str, phyche(, pssm, ss: str)
-        dataset = dataset.map(lambda x:parser(x, hparams), num_parallel_calls=4)
+        #dataset = dataset.map(lambda x:parser(x, hparams), num_parallel_calls=4)
+        dataset = files.apply(tf.contrib.data.parallel_interleave(
+                    lambda f: tf.data.TFRecordDataset(f).map(
+                      lambda x: parser(x, hparams), num_parallel_calls=1),
+                    cycle_length=4,
+                    block_length=10,
+                    buffer_output_elements=batch_size,
+                    prefetch_input_elements=10))
+
 
     # create lookup tables
     hparams.prot_lookup_table = create_lookup_table("prot")
@@ -55,11 +64,8 @@ def create_dataset(hparams, mode):
     prot_size = tf.cast(hparams.prot_lookup_table.size(), tf.int32)
     struct_size = tf.cast(hparams.struct_lookup_table.size(), tf.int32)
 
-    # cache results of the parse function
-    dataset = dataset.cache()
-
     if shuffle:
-        dataset = dataset.apply(tf.contrib.data.shuffle_and_repeat(buffer_size=200000, count=num_epochs))
+        dataset = dataset.apply(tf.contrib.data.shuffle_and_repeat(buffer_size=50000, count=num_epochs))
     else:
         dataset = dataset.repeat(num_epochs)
 
