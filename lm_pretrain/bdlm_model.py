@@ -22,7 +22,7 @@ class BDLMModel(BaseModel):
         Returns:
             A tuple with (logits, loss, metrics, update_ops)
         """
-        (x, out_embed), logits, loss, metrics, update_ops = self._build_lm_graph(hparams, inputs, mode, scope)
+        (x, out_embed), logits, loss, metrics, update_ops = BDLMModel._build_lm_graph(hparams, inputs, mode, scope)
         return logits, loss, metrics, update_ops
 
 
