@@ -34,7 +34,7 @@ class BDRNNModel(BaseModel):
             (lm_x, lm_out_embed), lm_logits, lm_loss, lm_metrics, lm_update_ops = \
                     BDLMModel._build_lm_graph(hparams.lm_hparams, (ids, lens, seq_in, phyche, seq_out), lm_mode)
 
-            x = tf.concat([lm_x[:, 1:-1, :], lm_out_embed, pssm], axis=-1, name="bdrnn_input")
+            x = tf.concat([lm_x[:, 1:-1, :], pssm], axis=-1, name="bdrnn_input")
 
             if not hparams.train_bdlm:
                 print("Stopping gradients to bdlm.")
