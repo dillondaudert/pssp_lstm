@@ -96,7 +96,9 @@ def pretrain(hparams):
                 eval_tuple.session.run([eval_tuple.iterator.initializer, local_initializer])
                 while True:
                     try:
-                        eval_loss, eval_acc, _, eval_summary, _ = eval_tuple.model.eval(eval_tuple.session)
+                        inp_tuple, eval_probs, eval_loss, eval_acc, _, eval_summary, _ = eval_tuple.model.eval(eval_tuple.session)
+                        #print(np.argmax(inp_tuple[2][0,:,:], axis=-1))
+                        #print(np.argmax(eval_probs[0,:,:], axis=-1))
                     except tf.errors.OutOfRangeError:
                         print("Step: %d, Eval Loss: %4.4f, Eval Accuracy: %1.4f" % (global_step,
                                                                               eval_loss,
