@@ -33,8 +33,8 @@ def main():
     tr_group.add_argument("--bdlm_ckpt", type=str, default="",
                            help="the path to a pretrained language model checkpoint")
     tr_parser.add_argument("--train_bdlm", type=bool, default=True,
-                           help="this flag indicates that the pretrained models should be\
-                                 fixed during fine-tuning.")
+                           help="this flag indicates that the bdlm should be\
+                                 trained during fine-tuning.")
     tr_parser.add_argument("--loss_weights", nargs=2, type=float,
                            help="if --train_bdlm=True (the default), then this flag takes\
                                  2 arguments indicating the weights for the lm loss and pssp loss\
@@ -63,13 +63,17 @@ def main():
         if args.model == "bdrnn":
             if args.bdlm_ckpt != "":
                 HPARAMS.bdlm_ckpt = args.bdlm_ckpt
-                HPARAMS.train_bdlm = args.train_bdlm
-                if args.train_bdlm and args.loss_weights is not None:
-                    HPARAMS.loss_weights = args.loss_weights
-                LM_HPARAMS = hparams["bdlm"]
-                HPARAMS.lm_hparams = LM_HPARAMS
             elif args.bdrnn_ckpt != "":
                 HPARAMS.bdrnn_ckpt = args.bdrnn_ckpt
+            else:
+                HPARAMS.bdlm_ckpt = ""
+                HPARAMS.bdrnn_ckpt = ""
+
+            HPARAMS.train_bdlm = args.train_bdlm
+            if args.train_bdlm and args.loss_weights is not None:
+                HPARAMS.loss_weights = args.loss_weights
+            LM_HPARAMS = hparams["bdlm"]
+            HPARAMS.lm_hparams = LM_HPARAMS
 
         # run training
         HPARAMS.logging = args.logging
