@@ -22,7 +22,7 @@ def evaluate(hparams):
     eval_tuple.session.run([eval_tuple.iterator.initializer, local_initializer])
     while True:
         try:
-            eval_loss, eval_acc, eval_cm, eval_summary, _ = eval_tuple.model.eval(eval_tuple.session)
+            x, probs, eval_loss, eval_acc, eval_cm, eval_summary, _ = eval_tuple.model.eval(eval_tuple.session)
             # summary_writer.add_summary(summary, global_step)
         except tf.errors.OutOfRangeError:
             print("Eval Loss: %f, Eval Accuracy: %f" % (eval_loss,
