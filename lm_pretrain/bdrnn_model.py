@@ -27,31 +27,17 @@ class BDRNNModel(BaseModel):
 
         ids, lens, seq_in, phyche, seq_out, pssm, ss = inputs
 
-        if hparams.bdlm_ckpt != "" or hparams.pretrained:
-            # if we aren't fine-tuning the bdlm, set lm_mode to eval
-            lm_mode = mode if hparams.train_bdlm else tf.contrib.learn.ModeKeys.EVAL
+        # if we aren't fine-tuning the bdlm, set lm_mode to eval
+        lm_mode = mode if hparams.train_bdlm else tf.contrib.learn.ModeKeys.EVAL
 
-            (lm_x, lm_out_embed), lm_logits, lm_loss, lm_metrics, lm_update_ops = \
-                    BDLMModel._build_lm_graph(hparams.lm_hparams, (ids, lens, seq_in, phyche, seq_out), lm_mode)
+        (lm_x, lm_out_embed), lm_logits, lm_loss, lm_metrics, lm_update_ops = \
+                BDLMModel._build_lm_graph(hparams.lm_hparams, (ids, lens, seq_in, phyche, seq_out), lm_mode)
 
-            x = tf.concat([lm_x[:, 1:-1, :], pssm], axis=-1, name="bdrnn_input")
+        x = tf.concat([lm_x[:, 1:-1, :], pssm], axis=-1, name="bdrnn_input")
 
-            if not hparams.train_bdlm:
-                print("Stopping gradients to bdlm.")
-                x = tf.stop_gradient(x)
-
-        else:
-            # strip off extra steps
-            seq_in = seq_in[:, 1:-1, :]
-            phyche = phyche[:, 1:-1, :]
-
-            in_embed = tf.layers.Dense(units=hparams.in_embed_units,
-                                       kernel_initializer=tf.glorot_uniform_initializer(),
-                                       use_bias=False,
-                                       name="in_embed")(seq_in)
-            # TODO: Make it so it's possible to equalize # params with bdlm?
-            x = tf.concat([in_embed, phyche, pssm], axis=-1)
-
+        if not hparams.train_bdlm:
+            print("Stopping gradients to bdlm.")
+            x = tf.stop_gradient(x)
 
         with tf.variable_scope(scope or "bdrnn", dtype=tf.float32) as bdrnn_scope:
             # create bdrnn
