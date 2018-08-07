@@ -91,6 +91,10 @@ class BDRNNModel(BaseModel):
         seq_loss = tf.reduce_sum(crossent*mask, axis=1)/tf.cast(lens, tf.float32)
         loss = tf.reduce_sum(seq_loss)/tf.cast(hparams.batch_size, tf.float32)
 
+        if "loss_weights" in vars(hparams):
+            print("LM loss weight: %f, PSSP loss weight: %f\n" % (hparams.loss_weights[0], hparams.loss_weights[1]))
+            loss = hparams.loss_weights[0]*lm_loss + hparams.loss_weights[1]*loss
+
         metrics = []
         update_ops = []
         if mode == tf.contrib.learn.ModeKeys.EVAL:
