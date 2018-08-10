@@ -32,14 +32,14 @@ def main():
                            help="the path to a pretrained bdrnn.")
     tr_group.add_argument("--bdlm_ckpt", type=str, default="",
                            help="the path to a pretrained language model checkpoint")
-    tr_parser.add_argument("--train_bdlm", type=bool, default=True,
-                           help="this flag indicates that the bdlm should be\
-                                 trained during fine-tuning.")
+    tr_parser.add_argument("--freeze_bdlm", action="store_false",
+                           help="this flag indicates that the bdlm parameters should be\
+                                 frozen during fine-tuning.")
     tr_parser.add_argument("--loss_weights", nargs=2, type=float,
-                           help="if --train_bdlm=True (the default), then this flag takes\
+                           help="this flag takes\
                                  2 arguments indicating the weights for the lm loss and pssp loss\
                                  respectively. \
-                                 If --train_bdlm=False, this option is ignored.")
+                                 If --freeze_bdlm is specified, this option is ignored.")
     tr_parser.set_defaults(entry="train")
 
     ev_parser = subparsers.add_parser("evaluate", help="Evaluate a trained model")
@@ -69,10 +69,11 @@ def main():
                 HPARAMS.bdlm_ckpt = ""
                 HPARAMS.bdrnn_ckpt = ""
 
-            HPARAMS.train_bdlm = args.train_bdlm
-            if args.train_bdlm and args.loss_weights is not None:
+            HPARAMS.freeze_bdlm = args.freeze_bdlm
+            if not args.freeze_bdlm and args.loss_weights is not None:
                 HPARAMS.loss_weights = args.loss_weights
             LM_HPARAMS = hparams["bdlm"]
+            LM_HPARAMS.freeze_bdlm = args.freeze_bdlm
             HPARAMS.lm_hparams = LM_HPARAMS
 
         # run training
@@ -97,7 +98,7 @@ def main():
         HPARAMS.bdlm_ckpt = ""
         LM_HPARAMS = hparams["bdlm"]
         HPARAMS.lm_hparams = LM_HPARAMS
-        HPARAMS.train_bdlm = False
+        HPARAMS.freeze_bdlm = True
 
         evaluate(HPARAMS)
 

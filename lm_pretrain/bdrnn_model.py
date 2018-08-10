@@ -28,16 +28,16 @@ class BDRNNModel(BaseModel):
         ids, lens, seq_in, phyche, seq_out, pssm, ss = inputs
 
         # if we aren't fine-tuning the bdlm, set lm_mode to eval
-        lm_mode = mode if hparams.train_bdlm else tf.contrib.learn.ModeKeys.EVAL
+        lm_mode = mode if not hparams.freeze_bdlm else tf.contrib.learn.ModeKeys.EVAL
 
         (lm_x, lm_out_embed), lm_logits, lm_loss, lm_metrics, lm_update_ops = \
                 BDLMModel._build_lm_graph(hparams.lm_hparams, (ids, lens, seq_in, phyche, seq_out), lm_mode)
 
         x = tf.concat([lm_out_embed, pssm], axis=-1, name="bdrnn_input")
 
-        if not hparams.train_bdlm:
-            print("Stopping gradients to bdlm.")
-            x = tf.stop_gradient(x)
+        #if hparams.freeze_bdlm:
+        #    print("Stopping gradients to bdlm.")
+        #    x = tf.stop_gradient(x)
 
         with tf.variable_scope(scope or "bdrnn", dtype=tf.float32) as bdrnn_scope:
             # create bdrnn

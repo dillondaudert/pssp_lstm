@@ -32,12 +32,14 @@ class BDLMModel(BaseModel):
         ids, lens, seq_in, phyche, seq_out = inputs
 
         with tf.variable_scope(scope or "bdlm", dtype=tf.float32) as bdlm_scope:
+            print("Freezing BDLM: ", hparams.freeze_bdlm)
 
 
             in_embed = tf.layers.Dense(units=hparams.in_embed_units,
                                        kernel_initializer=tf.glorot_uniform_initializer(),
                                        use_bias=False,
-                                       name="in_embed")(seq_in)
+                                       name="in_embed",
+                                       trainable=not hparams.freeze_bdlm)(seq_in)
             in_embed = tf.layers.dropout(inputs=in_embed,
                                          rate=hparams.dropout,
                                          training=mode == tf.contrib.learn.ModeKeys.TRAIN,
@@ -76,7 +78,8 @@ class BDLMModel(BaseModel):
             out_embed = tf.layers.Dense(units=hparams.out_embed_units,
                                         kernel_initializer=tf.glorot_normal_initializer(),
                                         use_bias=False,
-                                        name="out_embed")(rnn_out)
+                                        name="out_embed",
+                                        trainable=not hparams.freeze_bdlm)(rnn_out)
             out_embed = tf.layers.dropout(inputs=out_embed,
                                           rate=hparams.dropout,
                                           training=mode == tf.contrib.learn.ModeKeys.TRAIN)
@@ -84,7 +87,8 @@ class BDLMModel(BaseModel):
 
         with tf.variable_scope("lm_out", dtype=tf.float32):
             logits = tf.layers.dense(inputs=out_embed,
-                                     units=hparams.num_labels)
+                                     units=hparams.num_labels,
+                                     trainable=not hparams.freeze_bdlm)
 
         # mask out entries longer than target sequence length
         mask = tf.sequence_mask(lens, dtype=tf.float32)
