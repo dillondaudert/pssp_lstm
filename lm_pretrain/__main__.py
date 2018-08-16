@@ -32,7 +32,7 @@ def main():
                            help="the path to a pretrained bdrnn.")
     tr_group.add_argument("--bdlm_ckpt", type=str, default="",
                            help="the path to a pretrained language model checkpoint")
-    tr_parser.add_argument("--freeze_bdlm", action="store_false",
+    tr_parser.add_argument("--freeze_bdlm", action="store_true",
                            help="this flag indicates that the bdlm parameters should be\
                                  frozen during fine-tuning.")
     tr_parser.add_argument("--loss_weights", nargs=2, type=float,

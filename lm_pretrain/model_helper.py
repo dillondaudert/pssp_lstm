@@ -58,7 +58,14 @@ def _get_initial_state(state_sizes: list, batch_size, name):
 
     return init_states
 
-def _create_rnn_cell(cell_type, num_units, num_layers, mode, residual=False, as_list=False, recurrent_dropout=0.0):
+def _create_rnn_cell(cell_type,
+                     num_units,
+                     num_layers,
+                     mode,
+                     residual=False,
+                     as_list=False,
+                     recurrent_dropout=0.0,
+                     trainable=True):
     """Create a list of RNN cells.
 
     Args:
@@ -67,6 +74,7 @@ def _create_rnn_cell(cell_type, num_units, num_layers, mode, residual=False, as_
         num_layers: the number of cells
         mode: either tf.contrib.learn.TRAIN/EVAL/INFER
         as_list: return as a list of Cells if True, else as a MultiRNNCell
+        trainable: whether the RNN cells should be trainable or fixed
     Returns:
         A list of 'RNNCell' instances
     """
@@ -79,7 +87,8 @@ def _create_rnn_cell(cell_type, num_units, num_layers, mode, residual=False, as_
     cell_list = []
     for i in range(num_layers):
         single_cell = Cell(name=cell_type,
-                           num_units=num_units)
+                           num_units=num_units,
+                           trainable=trainable)
 #                           initializer=tf.glorot_uniform_initializer)
         if residual and i > 0:
             single_cell = tf.nn.rnn_cell.ResidualWrapper(

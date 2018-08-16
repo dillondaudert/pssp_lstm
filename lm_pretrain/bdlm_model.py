@@ -32,8 +32,6 @@ class BDLMModel(BaseModel):
         ids, lens, seq_in, phyche, seq_out = inputs
 
         with tf.variable_scope(scope or "bdlm", dtype=tf.float32) as bdlm_scope:
-            print("Freezing BDLM: ", hparams.freeze_bdlm)
-
 
             in_embed = tf.layers.Dense(units=hparams.in_embed_units,
                                        kernel_initializer=tf.glorot_uniform_initializer(),
@@ -52,13 +50,15 @@ class BDLMModel(BaseModel):
                                         num_layers=hparams.num_lm_layers,
                                         mode=mode,
                                         residual=hparams.lm_residual,
-                                        recurrent_dropout=hparams.recurrent_dropout)
+                                        recurrent_dropout=hparams.recurrent_dropout,
+                                        trainable=not hparams.freeze_bdlm)
             bw_cells = _create_rnn_cell(cell_type=hparams.cell_type,
                                         num_units=hparams.num_lm_units,
                                         num_layers=hparams.num_lm_layers,
                                         mode=mode,
                                         residual=hparams.lm_residual,
-                                        recurrent_dropout=hparams.recurrent_dropout)
+                                        recurrent_dropout=hparams.recurrent_dropout,
+                                        trainable=not hparams.freeze_bdlm)
 
             #cells.build([None, hparams.num_features]) #hparams.input_proj_size])
 
