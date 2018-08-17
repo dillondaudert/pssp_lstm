@@ -16,8 +16,8 @@ class BaseModel(object):
         self.global_step = tf.Variable(0, name="global_step", trainable=False)
 
         # set initializer
-        initializer = tf.random_uniform_initializer(minval=-0.05, maxval=0.05)
-
+        #initializer = tf.random_uniform_initializer(minval=-0.05, maxval=0.05)
+        initializer = tf.glorot_uniform_initializer()
         tf.get_variable_scope().set_initializer(initializer)
 
         self.inputs = self.iterator.get_next()
