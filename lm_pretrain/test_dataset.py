@@ -1,80 +1,73 @@
 # test the dataset pipeline
 import unittest
+import os
+from pathlib import Path
 import tensorflow as tf
 import numpy as np
-from .dataset import create_dataset
-from .lookup import create_lookup_table
+from .dataset import _from_files
+from .parsers import cpdb_parser, cUR50_parser
 
-class TestDatasetPipeline(unittest.TestCase):
+class TestDatasetEager(unittest.TestCase):
+    # do tests that can be done with eager execution
 
-    hparams = tf.contrib.training.HParams(
-            num_phyche_features=1,
-            num_pssm_features=1,
-            batch_size=2,
-            num_epochs=100,
-            prot_lookup_table=None,
-            prot_reverse_lookup_table=None,
-            struct_lookup_table=None,
-            struct_reverse_lookup_table=None,
-            dataset=None,
-            model=None)
+    @classmethod
+    def setUpClass(cls):
+        os.environ["CUDA_VISIBLE_DEVICES"] = ""
+        tf.enable_eager_execution()
+        cls.datadir = Path(Path.home(), "data", "test_data")
 
-    ids = ["0", "1"]
-    lens = [6, 4]
-    seqs = ["ACDEFG", "ACDE"]
-    phyche = [np.ones(shape=(6, 1)), np.ones(shape=(4, 1))]
-    pssm = [np.ones(shape=(6, 1))*.5, np.ones(shape=(4, 1))*.5]
-    ss = ["HELTSG", "HELT"]
-    def data_gen(self):
-        for i in range(2):
-            yield (self.ids[i],
-                   self.lens[i],
-                   self.seqs[i],
-                   self.phyche[i],
-                   self.pssm[i],
-                   self.ss[i])
+        cls.hparams = tf.contrib.training.HParams(
+            file_pattern=str(Path(cls.datadir, "ur50_*.tfrecords")),
+            file_shuffle_seed=12345,
+            num_train_files=1,
+            num_valid_files=1,
+            batch_size=1,
+            num_phyche_features=7,
+            )
+        cls.tr_mode = tf.contrib.learn.ModeKeys.TRAIN
+        cls.ev_mode = tf.contrib.learn.ModeKeys.EVAL
 
-    def setUp(self):
-        self.sess = tf.Session()
-        self.dataset = tf.data.Dataset.from_generator(
-                self.data_gen,
-                output_types=(tf.string, tf.int32, tf.string, tf.float32, tf.float32, tf.string),
-                output_shapes=(tf.TensorShape([]),
-                               tf.TensorShape([]),
-                               tf.TensorShape([]),
-                               tf.TensorShape([None, 1]),
-                               tf.TensorShape([None, 1]),
-                               tf.TensorShape([])))
+    def test_from_files_train(self):
+        train_dataset1 = _from_files(self.hparams, self.tr_mode, cUR50_parser)
+        train_dataset2 = _from_files(self.hparams, self.tr_mode, cUR50_parser)
 
-        self.hparams.prot_lookup_table = create_lookup_table("prot")
-        self.hparams.prot_reverse_lookup_table = create_lookup_table("prot", reverse=True)
-        self.hparams.struct_lookup_table = create_lookup_table("struct")
-        self.hparams.struct_reverse_lookup_table = create_lookup_table("struct", reverse=True)
-        self.sess.run(tf.tables_initializer())
+        iter1 = train_dataset1.make_one_shot_iterator()
+        iter2 = train_dataset2.make_one_shot_iterator()
 
+        for (a, b) in zip(iter1, iter2):
+            self.assertEqual(str(a[0].numpy()), str(b[0].numpy()))
 
-    def tearDown(self):
-        self.sess.close()
-        tf.reset_default_graph()
+    def test_from_files_valid(self):
+        # train_dataset reads 1
+        train_dataset = _from_files(self.hparams, self.tr_mode, cUR50_parser)
+        train_iter = train_dataset.make_one_shot_iterator()
+        # valid_dataset skips 1 and reads 1 (from self.hparams)
+        valid_dataset = _from_files(self.hparams, self.ev_mode, cUR50_parser)
+        valid_iter = valid_dataset.make_one_shot_iterator()
+        # train_dataset2 reads 2
+        hparams = tf.contrib.training.HParams(
+            file_pattern=str(Path(self.datadir, "ur50_*.tfrecords")),
+            file_shuffle_seed=12345,
+            num_train_files=2,
+            num_valid_files=1,
+            batch_size=1,
+            num_phyche_features=7,
+            )
+        train_dataset2 = _from_files(hparams, self.tr_mode, cUR50_parser)
+        train_iter2 = train_dataset2.make_one_shot_iterator()
 
+        # NOTE: so the IDs in valid_ds should be a subset of the IDs from train_ds
+        #       and the intersection should be equal to the set of valid_ds IDs.
+        train_ids = set((str(x[0].numpy()) for x in train_iter))
+        valid_ids = set((str(x[0].numpy()) for x in valid_iter))
+        train2_ids = set((str(x[0].numpy()) for x in train_iter2))
 
-    def test_dataset_from_gen(self):
-        iterator = self.dataset.make_one_shot_iterator()
-        x = iterator.get_next()
-        next(self.data_gen())
-        self.sess.run(x)
+        # this checks that the valid dataset skips num_train_files
+        self.assertTrue(valid_ids <= train2_ids)
 
-    def test_dataset_lm(self):
-        self.dataset = self.dataset.map(lambda ids, lens, seqs, phyche, pssm, ss: (ids, lens, seqs, phyche))
-        self.hparams.dataset = self.dataset
-        self.hparams.model = "lm"
-        dataset = create_dataset(self.hparams, tf.contrib.learn.ModeKeys.EVAL)
-        iterator = dataset.make_initializable_iterator()
-        x = iterator.get_next()
-        self.sess.run(iterator.initializer)
-        (_id, _len, _seq, _phyche, __), _ = self.sess.run(x)
-#        target_seq = np.array([[[
-#        self.assertTrue(np.array_equal( , _seq))
+        # this checks that the train dataset reads the same file for both
+        self.assertTrue(train_ids <= train2_ids)
+        self.assertTrue((train2_ids - valid_ids) == train_ids)
 
 
 if __name__ == "__main__":
