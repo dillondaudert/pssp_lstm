@@ -29,13 +29,9 @@ hparams = {
         eval_step=200,
         model="bdlm",
         Model=BDLMModel,
-#        train_file="ur50_0*00.tfrecords",
-#        valid_file="ur50_0*555.tfrecords",
-        train_file="ur50_0*5.tfrecords",
-        valid_file="ur50_05*50.tfrecords",
-        test_file="",
         bdlm_ckpt="",
         freeze_bdlm=False,
+        file_pattern="ur50_*.tfrecords", # NEW
         file_shuffle_seed=12345, # NEW
         num_train_files=1000,    # NEW
         num_valid_files=10,      # NEW
@@ -62,9 +58,6 @@ hparams = {
         train_file="cpdb_train.tfrecords",
         valid_file="cpdb_valid.tfrecords",
         test_file="cpdb513_test.tfrecords",
-        file_shuffle_seed=12345, # NEW
-        num_train_files=1,    # NEW
-        num_valid_files=1,      # NEW
         ),
    "van_bdrnn": tf.contrib.training.HParams(
         num_phyche_features=7,
@@ -89,8 +82,5 @@ hparams = {
         train_file="cpdb_train.tfrecords",
         valid_file="cpdb_valid.tfrecords",
         test_file="cpdb513_test.tfrecords",
-        file_shuffle_seed=12345, # NEW
-        num_train_files=1,    # NEW
-        num_valid_files=1,      # NEW
         ),
    }
