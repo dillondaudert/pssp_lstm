@@ -34,6 +34,8 @@ HPARAM_DESCS = {
     "eval_step": (int, "the number of training steps to do between each validation pass"),
     "model": (str, "the kind of model to train"),
     "Model": ("TODO: consolidate model/Model"),
+    "file_pattern": (str, "the pattern of filenames to match for creating a dataset from multiple files.\
+                           this is mutually exclusive with [train|valid]_file."),
     "train_file": (str, "the name of the file to use for training. This can also be a pattern to match files."),
     "valid_file": (str, "like train_file, but for validation"),
     "test_file": (str, "like valid_file, but for testing"),
