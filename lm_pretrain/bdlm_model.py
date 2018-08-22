@@ -77,8 +77,8 @@ class BDLMModel(BaseModel):
 
             out_embed = tf.layers.Dense(units=hparams.out_embed_units,
                                         kernel_initializer=tf.glorot_normal_initializer(),
-                                        use_bias=False,
                                         name="out_embed",
+                                        activation=tf.nn.relu,
                                         trainable=not hparams.freeze_bdlm)(rnn_out)
             out_embed = tf.layers.dropout(inputs=out_embed,
                                           rate=hparams.dropout,
