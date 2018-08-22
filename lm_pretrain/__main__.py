@@ -25,7 +25,8 @@ def main():
                                  be saved")
     tr_parser.add_argument("-l", "--logging", action="store_true",
                            help="toggle to enable tf.summary logs (disabled by default)")
-    tr_parser.add_argument("-m", "--model", type=str, choices=["bdlm", "bdrnn"], required=True,
+    tr_parser.add_argument("-m", "--model", type=str, choices=["bdlm", "bdrnn", "van_bdrnn"],
+                           required=True,
                            help="which kind of model to train")
     tr_group = tr_parser.add_mutually_exclusive_group()
     tr_group.add_argument("--bdrnn_ckpt", type=str, default="",
@@ -48,7 +49,8 @@ def main():
                            help="the directory where the cpdb513_test.tfrecords file is located")
     ev_parser.add_argument("ckpt", type=str, help="a tf model checkpoint file.")
 
-    ev_parser.add_argument("-m", "--model", type=str, choices=["bdlm", "bdrnn"], required=True,
+    ev_parser.add_argument("-m", "--model", type=str, choices=["bdlm", "bdrnn", "van_bdrnn"],
+                           required=True,
                            help="which kind of model to train")
 
     ev_parser.set_defaults(entry="evaluate")
@@ -75,6 +77,8 @@ def main():
             LM_HPARAMS = hparams["bdlm"]
             LM_HPARAMS.freeze_bdlm = args.freeze_bdlm
             HPARAMS.lm_hparams = LM_HPARAMS
+        elif args.model == "van_bdrnn":
+            HPARAMS.bdlm_ckpt = ""
 
         # run training
         HPARAMS.logging = args.logging
