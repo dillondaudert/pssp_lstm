@@ -35,6 +35,10 @@ class BDRNNModel(BaseModel):
 
         x = tf.concat([lm_out_embed, pssm], axis=-1, name="bdrnn_input")
 
+        drop_x = tf.layers.dropout(inputs=x,
+                                   rate=hparams.dropout,
+                                   training=(mode==tf.contrib.learn.ModeKeys.TRAIN) and hparams.freeze_bdlm)
+
         #if hparams.freeze_bdlm:
         #    print("Stopping gradients to bdlm.")
         #    x = tf.stop_gradient(x)
@@ -63,7 +67,7 @@ class BDRNNModel(BaseModel):
             combined_outputs, output_state_fw, output_state_bw = \
                     tf.contrib.rnn.stack_bidirectional_dynamic_rnn(cells_fw=fw_cells,
                                                                    cells_bw=bw_cells,
-                                                                   inputs=x,
+                                                                   inputs=drop_x,
                                                                    sequence_length=lens,
                                                                    dtype=tf.float32,
                                                                    scope=bdrnn_scope)
@@ -78,7 +82,6 @@ class BDRNNModel(BaseModel):
 
             logits = tf.layers.dense(inputs=drop1,
                                      units=hparams.num_labels,
-                                     use_bias=False,
                                      name="bdrnn_logits")
 
         # mask out entries longer than target sequence length
