@@ -81,7 +81,7 @@ def _create_rnn_cell(cell_type,
 
     if cell_type == "gru":
         Cell = GRUBlockCell
-    else:
+    elif cell_type == "lstm":
         Cell = LSTMBlockCell
 
     cell_list = []
@@ -89,7 +89,6 @@ def _create_rnn_cell(cell_type,
         single_cell = Cell(name=cell_type,
                            num_units=num_units,
                            trainable=trainable)
-#                           initializer=tf.glorot_uniform_initializer)
         if residual and i > 0:
             single_cell = tf.nn.rnn_cell.ResidualWrapper(
                     cell=single_cell)
@@ -98,6 +97,8 @@ def _create_rnn_cell(cell_type,
                     cell=single_cell,
                     state_keep_prob=1.0-recurrent_dropout if mode == tf.contrib.learn.ModeKeys.TRAIN else 1.0,
                     #variational_recurrent=True,
+                    #input_size=tf.TensorShape([1]),
+                    #dtype=tf.float32,
                     )
         cell_list.append(single_cell)
 
