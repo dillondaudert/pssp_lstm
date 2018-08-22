@@ -5,6 +5,7 @@ from pathlib import Path
 from .pretrain import pretrain
 from .evaluate import evaluate
 from .hparams import hparams
+from .hparam_helpers import hparams_to_str, HPARAM_CHOICES, HPARAM_DESCS
 
 def main():
 
@@ -17,25 +18,22 @@ def main():
     # -- training subparser --
     tr_parser = subparsers.add_parser("train", help="Train a model")
 
-    tr_parser.add_argument("datadir", type=str,
-                           help="the directory where the .tfrecords data is located")
+    tr_parser.add_argument("datadir", type=str, help=HPARAM_DESCS["datadir"][1])
 
-    tr_parser.add_argument("logdir", type=str,
-                           help="the directory where model checkpoints and logs will\
-                                 be saved")
-    tr_parser.add_argument("-l", "--logging", action="store_true",
-                           help="toggle to enable tf.summary logs (disabled by default)")
-    tr_parser.add_argument("-m", "--model", type=str, choices=["bdlm", "bdrnn", "van_bdrnn"],
-                           required=True,
-                           help="which kind of model to train")
+    tr_parser.add_argument("logdir", type=str, help=HPARAM_DESCS["logdir"][1])
+
+    tr_parser.add_argument("-l", "--logging", action="store_true", help=HPARAM_DESCS["logging"][1])
+
+    tr_parser.add_argument("-m", "--model", type=str, choices=HPARAM_CHOICES["model"], required=True,
+                           help=HPARAM_DESCS["model"][1])
+
     tr_group = tr_parser.add_mutually_exclusive_group()
     tr_group.add_argument("--bdrnn_ckpt", type=str, default="",
-                           help="the path to a pretrained bdrnn.")
+                           help=HPARAM_DESCS["bdrnn_ckpt"][1])
     tr_group.add_argument("--bdlm_ckpt", type=str, default="",
-                           help="the path to a pretrained language model checkpoint")
+                           help=HPARAM_DESCS["bdlm_ckpt"][1])
     tr_parser.add_argument("--freeze_bdlm", action="store_true",
-                           help="this flag indicates that the bdlm parameters should be\
-                                 frozen during fine-tuning.")
+                           help=HPARAM_DESCS["freeze_bdlm"][1])
     tr_parser.add_argument("--loss_weights", nargs=2, type=float,
                            help="this flag takes\
                                  2 arguments indicating the weights for the lm loss and pssp loss\
@@ -49,9 +47,9 @@ def main():
                            help="the directory where the cpdb513_test.tfrecords file is located")
     ev_parser.add_argument("ckpt", type=str, help="a tf model checkpoint file.")
 
-    ev_parser.add_argument("-m", "--model", type=str, choices=["bdlm", "bdrnn", "van_bdrnn"],
+    ev_parser.add_argument("-m", "--model", type=str, choices=HPARAM_CHOICES["model"],
                            required=True,
-                           help="which kind of model to train")
+                           help=HPARAM_DESCS["model"][1])
 
     ev_parser.set_defaults(entry="evaluate")
 
@@ -89,7 +87,18 @@ def main():
         HPARAMS.valid_file = str(Path(args.datadir, HPARAMS.valid_file).absolute())
         HPARAMS.test_file = str(Path(args.datadir, HPARAMS.test_file).absolute())
 
-        pretrain(HPARAMS)
+        hparams_to_str(HPARAMS)
+        if "lm_hparams" in vars(HPARAMS):
+            print("Language Model Hyperparameters")
+            hparams_to_str(HPARAMS.lm_hparams)
+
+        cont = input("Continue? [y]/n: ")
+        if cont == "" or cont == "y":
+            print("Continuing.")
+            pretrain(HPARAMS)
+        else:
+            print("Quitting.")
+            quit()
 
     elif args.entry == "evaluate":
         model_hparams = args.model

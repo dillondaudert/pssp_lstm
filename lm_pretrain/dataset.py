@@ -26,11 +26,15 @@ def create_dataset(hparams, mode):
             shuffle = True
             batch_size = hparams.batch_size
             num_epochs = hparams.num_epochs
+            seed = hparams.file_shuffle_seed
+            num_files = hparams.num_train_files
         elif mode == tf.contrib.learn.ModeKeys.EVAL:
             input_file = hparams.valid_file
             shuffle = False
             batch_size = hparams.batch_size
             num_epochs = 1
+            seed = hparams.file_shuffle_seed
+            num_files = hparams.num_valid_files
         else:
             print("INFER mode not supported.")
             quit()
@@ -40,12 +44,18 @@ def create_dataset(hparams, mode):
         elif hparams.model == "bdrnn":
             parser = cpdb_parser
 
-        files = tf.data.Dataset.list_files(input_file, shuffle=shuffle)
+        # NOTE: this dataset contains all the files, so it should always be shuffled
+        files = tf.data.Dataset.list_files(input_file, shuffle=True, seed=seed)
 
-        #dataset = tf.data.TFRecordDataset(input_file)
-        # parse the records
-        # NOTE: id, len, seq: str, phyche(, pssm, ss: str)
-        #dataset = dataset.map(lambda x:parser(x, hparams), num_parallel_calls=4)
+        # take a specified number of files to create the dataset.
+        # if we're evaluating, skip however many files were taken for training
+        if hparams.model == "bdlm":
+            if mode == tf.contrib.learn.ModeKeys.EVAL:
+                # skip however many files were used for training
+                files = files.skip(hparams.num_train_files)
+            files = files.take(num_files)
+
+        # id, len, seq: str, phyche(, pssm, ss: str)
         dataset = files.apply(tf.contrib.data.parallel_interleave(
                     lambda f: tf.data.TFRecordDataset(f).map(
                       lambda x: parser(x, hparams), num_parallel_calls=1),
