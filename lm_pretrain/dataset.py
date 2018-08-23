@@ -6,7 +6,7 @@ from .parsers import cpdb_parser, cUR50_parser
 from .lookup import create_lookup_table
 
 
-def _lm_map_func(sos_id, eos_id, prot_size):
+def _lm_map_func(hparams, sos_id, eos_id, prot_size):
     """Return a closure for the BDLM with the SOS/EOS ids"""
     def lm_map_func(id, seq_len, seq, phyche):
         prot_eye = tf.eye(prot_size)
@@ -25,9 +25,9 @@ def _lm_map_func(sos_id, eos_id, prot_size):
         return id, seq_len, seq_in, phyche, seq_out
     return lm_map_func
 
-def _bdrnn_map_func(sos_id, eos_id, prot_size, struct_size):
+def _bdrnn_map_func(hparams, sos_id, eos_id, prot_size, struct_size):
     """Return a closure for the BDRNN with the SOS/EOS ids"""
-    lm_map_func = _lm_map_func(sos_id, eos_id, prot_size)
+    lm_map_func = _lm_map_func(hparams, sos_id, eos_id, prot_size)
     def bdrnn_map_func(id, seq_len, seq, phyche, pssm, ss):
         id, seq_len, seq_in, phyche, seq_out = lm_map_func(id, seq_len, seq, phyche)
 
@@ -104,7 +104,7 @@ def create_dataset(hparams, mode):
     # get parsers and map functions for each kind of dataset
     if hparams.model == "bdlm":
         parser = cUR50_parser
-        map_fn = _lm_map_func(sos_id, eos_id, prot_size)
+        map_fn = _lm_map_func(hparams, sos_id, eos_id, prot_size)
         padded_shapes=(tf.TensorShape([]), # id
                        tf.TensorShape([]), # len
                        tf.TensorShape([None, 23]), # seq
@@ -113,7 +113,7 @@ def create_dataset(hparams, mode):
                        )
     elif hparams.model == "bdrnn":
         parser = cpdb_parser
-        map_fn = _bdrnn_map_func(sos_id, eos_id, prot_size, struct_size)
+        map_fn = _bdrnn_map_func(hparams, sos_id, eos_id, prot_size, struct_size)
         padded_shapes=(tf.TensorShape([]), # id
                        tf.TensorShape([]), # len
                        tf.TensorShape([None, 23]), # seq_in
