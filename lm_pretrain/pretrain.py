@@ -6,22 +6,33 @@ import tensorflow as tf
 import numpy as np
 from tensorflow.contrib.tensorboard.plugins import projector
 from .model_helper import create_model
+from .hparam_helpers import hparams_to_str
 
 def pretrain(hparams):
     """Build and train the model as specified in hparams"""
 
     ckptsdir = hparams.logdir
 
+    # try to create directory
+    if not Path(ckptsdir).exists():
+        try:
+            Path(ckptsdir).mkdir(parents=True)
+        except Exception as e:
+            print(e)
+            raise
+
+    hparam_str = "Hyperparameters:\n"
+    hparam_str += hparams_to_str(hparams)
     # write hparams to directory
-    hparam_str = "HPARAMS\n %s\n" % (repr(hparams))
     if "lm_hparams" in vars(hparams):
-        hparam_str = hparam_str + "LM_HPARAMS\n%s\n" % (repr(hparams.lm_hparams))
+        hparam_str += "\nLanguage Model Hyperparameters:\n"
+        hparam_str += hparams_to_str(hparams.lm_hparams)
     try:
         hparam_file = Path(ckptsdir, "hparams.txt")
         hparam_file.write_text(hparam_str)
     except FileNotFoundError as e:
-        print("%s not found; try creating %s before running this program." % (str(hparam_file), ckptsdir))
         print(e)
+        raise
 
     # build training and eval graphs
     train_tuple = create_model(hparams, tf.contrib.learn.ModeKeys.TRAIN)
@@ -48,7 +59,7 @@ def pretrain(hparams):
 
     train_tuple.session.run([initializer])
 
-    if hparams.bdlm_ckpt != "":
+    if "bdlm_ckpt" in vars(hparams):
         train_tuple.model.bdlm_saver.restore(train_tuple.session, hparams.bdlm_ckpt)
 
     start_time = process_time()
