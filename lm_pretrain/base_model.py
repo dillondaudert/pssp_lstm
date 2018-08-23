@@ -67,8 +67,7 @@ class BaseModel(object):
 
 
         self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=hparams.num_keep_ckpts)
-        if hparams.bdlm_ckpt != "":
-            self.bdlm_saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="bdlm"))
+        self.bdlm_saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="bdlm"))
 
     @staticmethod
     @abc.abstractmethod
