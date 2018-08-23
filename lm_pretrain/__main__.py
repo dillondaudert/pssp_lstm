@@ -65,9 +65,6 @@ def main():
                 HPARAMS.bdlm_ckpt = args.bdlm_ckpt
             elif args.bdrnn_ckpt != "":
                 HPARAMS.bdrnn_ckpt = args.bdrnn_ckpt
-            else:
-                HPARAMS.bdlm_ckpt = ""
-                HPARAMS.bdrnn_ckpt = ""
 
             HPARAMS.freeze_bdlm = args.freeze_bdlm
             if not args.freeze_bdlm and args.loss_weights is not None:
@@ -75,17 +72,21 @@ def main():
             LM_HPARAMS = hparams["bdlm"]
             LM_HPARAMS.freeze_bdlm = args.freeze_bdlm
             HPARAMS.lm_hparams = LM_HPARAMS
-        elif args.model == "van_bdrnn":
-            HPARAMS.bdlm_ckpt = ""
 
         # run training
         HPARAMS.logging = args.logging
 
         logpath = Path(args.logdir)
         HPARAMS.logdir = str(logpath.absolute())
-        HPARAMS.train_file = str(Path(args.datadir, HPARAMS.train_file).absolute())
-        HPARAMS.valid_file = str(Path(args.datadir, HPARAMS.valid_file).absolute())
-        HPARAMS.test_file = str(Path(args.datadir, HPARAMS.test_file).absolute())
+        if "file_pattern" in vars(HPARAMS):
+            if "num_train_files" not in vars(HPARAMS) or "num_valid_files" not in vars(HPARAMS):
+                print("num_train_files and num_valid_files must both be specified if file_pattern is given.\nQuitting.")
+                quit()
+            HPARAMS.file_pattern = str(Path(args.datadir, HPARAMS.file_pattern))
+        else:
+            HPARAMS.train_file = str(Path(args.datadir, HPARAMS.train_file).absolute())
+            HPARAMS.valid_file = str(Path(args.datadir, HPARAMS.valid_file).absolute())
+            HPARAMS.test_file = str(Path(args.datadir, HPARAMS.test_file).absolute())
 
         hparams_to_str(HPARAMS)
         if "lm_hparams" in vars(HPARAMS):
