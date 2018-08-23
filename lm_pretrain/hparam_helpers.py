@@ -51,8 +51,10 @@ HPARAM_CHOICES = {
 }
 
 def hparams_to_str(hparams):
-    print("Hyperparameters")
+    outstr = ""
     for hp in HPARAM_DESCS.keys():
         if hp in vars(hparams):
-            print("\t"+hp+" := ", vars(hparams)[hp])
+            line = "\t%-20s: %s\n" % (hp, vars(hparams)[hp])
+            outstr += line
 
+    return outstr

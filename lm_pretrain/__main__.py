@@ -88,10 +88,11 @@ def main():
             HPARAMS.valid_file = str(Path(args.datadir, HPARAMS.valid_file).absolute())
             HPARAMS.test_file = str(Path(args.datadir, HPARAMS.test_file).absolute())
 
-        hparams_to_str(HPARAMS)
+        print("Hyperparameters")
+        print(hparams_to_str(HPARAMS))
         if "lm_hparams" in vars(HPARAMS):
-            print("Language Model Hyperparameters")
-            hparams_to_str(HPARAMS.lm_hparams)
+            print("\nLanguage Model Hyperparameters")
+            print(hparams_to_str(HPARAMS.lm_hparams))
 
         cont = input("Continue? [y]/n: ")
         if cont == "" or cont == "y":
