@@ -16,12 +16,20 @@ def _lm_map_func(hparams, sos_id, eos_id, prot_size):
         seq = tf.cast(hparams.prot_lookup_table.lookup(seq), tf.int32)
         # prepend/append SOS/EOS tokens
         seq_in = tf.concat(([sos_id], seq, [eos_id]), 0)
-        # prepend zeros to phyche
-        phyche_pad = tf.zeros(shape=(1, hparams.num_phyche_features))
+        if hparams.model == "cnn_bdlm":
+            k = hparams.filter_size
+        else:
+            k = 1
+        # pad zeros to phyche
+        phyche_pad = tf.zeros(shape=(k, hparams.num_phyche_features))
         phyche = tf.concat([phyche_pad, phyche, phyche_pad], 0)
         # map to one-hots
         seq_in = tf.nn.embedding_lookup(prot_eye, seq_in)
         seq_out = tf.nn.embedding_lookup(prot_eye, seq)
+        # pad zeros to match filters
+        if hparams.model == "cnn_bdlm":
+            pad = tf.zeros(shape=(k-1, prot_size))
+            seq_in = tf.concat([pad, seq_in, pad], 0)
         return id, seq_len, seq_in, phyche, seq_out
     return lm_map_func
 
@@ -102,7 +110,7 @@ def create_dataset(hparams, mode):
         quit()
 
     # get parsers and map functions for each kind of dataset
-    if hparams.model == "bdlm":
+    if hparams.model == "bdlm" or hparams.model == "cnn_bdlm":
         parser = cUR50_parser
         map_fn = _lm_map_func(hparams, sos_id, eos_id, prot_size)
         padded_shapes=(tf.TensorShape([]), # id
