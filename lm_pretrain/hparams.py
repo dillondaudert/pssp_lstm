@@ -10,6 +10,35 @@ layers = [1, 2, 4, 8, 16, 32]
 i = 0
 
 hparams = {
+   "cnn_bdlm": tf.contrib.training.HParams(
+        num_phyche_features=7,
+        num_labels=23,
+        num_filters=1024,
+        filter_size=7,
+        num_units=256,
+        num_lm_units=1024,
+        num_lm_layers=2,
+        dropout=0.4,
+        recurrent_state_dropout=0.4,
+        recurrent_input_dropout=0.3,
+        l2_lambda=0.001,
+        l2_alpha=2,
+        l2_beta=1,
+        batch_size=50,
+        num_epochs=6,
+        max_gradient_norm=1.0,
+        learning_rate=0.1,
+        num_keep_ckpts=12,
+        eval_step=500,
+        model="cnn_bdlm",
+        Model=CBDLMModel,
+        bdlm_ckpt="",
+        freeze_bdlm=False,
+        file_pattern="ur50_*.tfrecords",
+        file_shuffle_seed=12345,
+        num_train_files=1000,
+        num_valid_files=10,
+        ),
    "bdlm": tf.contrib.training.HParams(
         num_phyche_features=7,
         num_labels=23,
@@ -31,10 +60,10 @@ hparams = {
         Model=BDLMModel,
         bdlm_ckpt="",
         freeze_bdlm=False,
-        file_pattern="ur50_*.tfrecords", # NEW
-        file_shuffle_seed=12345, # NEW
-        num_train_files=1000,    # NEW
-        num_valid_files=10,      # NEW
+        file_pattern="ur50_*.tfrecords",
+        file_shuffle_seed=12345,
+        num_train_files=1000,
+        num_valid_files=10,
         ),
    "bdrnn": tf.contrib.training.HParams(
         num_phyche_features=7,
