@@ -151,9 +151,14 @@ def create_dataset(hparams, mode):
     # record transformations
     dataset = dataset.map(map_fn, num_parallel_calls=4)
 
+    if hparams.model == "cnn_bdlm":
+        k = hparams.filter_size
+    else:
+        k = 1
+
     # bucketing
     dataset = dataset.apply(tf.contrib.data.bucket_by_sequence_length(
-        lambda id, seq_len, seq_in, phyche, seq_out, *z: seq_len+tf.constant(2, dtype=tf.int32),
+        lambda id, seq_len, seq_in, phyche, seq_out, *z: seq_len+tf.constant(2*k, dtype=tf.int32),
         [50, 150, 250, 350, # buckets
          450, 550, 650, 850],
         [batch_size, batch_size, batch_size, # all buckets have the
