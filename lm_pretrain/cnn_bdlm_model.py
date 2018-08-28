@@ -3,8 +3,8 @@ A Bidirectional Language Model with CNN embedding layer.
 """
 
 import tensorflow as tf
+from tensorflow.nn.rnn_cell import LSTMCell
 from .base_model import BaseModel
-from .model_helper import _create_rnn_cell
 from .metrics import streaming_confusion_matrix, cm_summary
 
 class CBDLMModel(BaseModel):
@@ -22,7 +22,7 @@ class CBDLMModel(BaseModel):
         Returns:
             A tuple with (logits, loss, metrics, update_ops)
         """
-        (x, out_embed), logits, loss, metrics, update_ops = CBDLMModel._build_lm_graph(hparams, inputs, mode, scope)
+        outputs, logits, loss, metrics, update_ops = CBDLMModel._build_lm_graph(hparams, inputs, mode, scope)
         return logits, loss, metrics, update_ops
 
 
@@ -36,16 +36,14 @@ class CBDLMModel(BaseModel):
         outputs = []
 
         with tf.variable_scope(scope or "cnn_embed", dtype=tf.float32) as cnn_scope:
-            cnn_embed = tf.layers.Conv1D(filters=hparams.n_filters,
+            cnn_embed = tf.layers.Conv1D(filters=hparams.num_filters,
                                          kernel_size=hparams.filter_size,
                                          activation=tf.nn.relu,
-                                         kernel_regularizer=None,
-                                         activity_regularizer=None,
+                                         kernel_regularizer=lambda inp: hparams.l2_lambda*tf.nn.l2_loss(inp),
                                          trainable=not hparams.freeze_bdlm)
 
             embed_proj = tf.layers.Dense(units=hparams.num_units,
-                                         kernel_regularizer=None,
-                                         activity_regularizer=None,
+                                         kernel_regularizer=lambda inp: hparams.l2_lambda*tf.nn.l2_loss(inp),
                                          trainable=not hparams.freeze_bdlm)
 
             z_0 = tf.layers.dropout(inputs=cnn_embed(x),
@@ -58,11 +56,10 @@ class CBDLMModel(BaseModel):
 
         with tf.variable_scope(scope or "bdlm", dtype=tf.float32) as bdlm_scope:
 
-            _get_cell = lambda: LSTMCell(num_units=hparams.num_lm_units,
-                                         num_proj=hparams.num_units,
-                                         kernel_regularizer=None,
-                                         activity_regularizer=None,
-                                         trainable=not hparams.freeze_bdlm)
+            _get_cell = lambda name: LSTMCell(name=name,
+                                              num_units=hparams.num_lm_units,
+                                              num_proj=hparams.num_units,
+                                              trainable=not hparams.freeze_bdlm)
             _drop_wrap = lambda cell: tf.nn.rnn_cell.DropoutWrapper(
                     cell=cell,
                     state_keep_prob=1.0-hparams.recurrent_state_dropout if mode == tf.contrib.learn.ModeKeys.TRAIN else 1.0,
@@ -72,9 +69,18 @@ class CBDLMModel(BaseModel):
                     dtype=tf.float32)
             fw_cells = []
             bw_cells = []
+            # keep track of unwrapped cells so we can get their weights later
+            unwrapped_fw_cells = []
+            unwrapped_bw_cells = []
             for i in range(hparams.num_lm_layers):
-                fw_cell = _drop_wrap(_get_cell())
-                bw_cell = _drop_wrap(_get_cell())
+                fw_cell = _get_cell("lstm_fw_%d"%(i))
+                bw_cell = _get_cell("lstm_bw_%d"%(i))
+                unwrapped_fw_cells.append(fw_cell)
+                unwrapped_bw_cells.append(bw_cell)
+
+                fw_cell = _drop_wrap(fw_cell)
+                bw_cell = _drop_wrap(bw_cell)
+
                 # create a residual connection around 1st layer
                 if i == 0:
                     fw_cell = tf.nn.rnn_cell.ResidualWrapper(fw_cell)
@@ -95,6 +101,7 @@ class CBDLMModel(BaseModel):
                 # get fw / bw outputs for each layer
                 input_fw = outputs[-1][0]
                 input_bw = outputs[-1][1]
+
                 output_fw, _ = tf.nn.dynamic_rnn(
                         cell=fw_cells[i],
                         inputs=input_fw,
@@ -105,8 +112,25 @@ class CBDLMModel(BaseModel):
                         inputs=input_bw,
                         sequence_length=lens+tf.constant(2*hparams.filter_size + 1, dtype=tf.int32),
                         dtype=tf.float32)
+                # add weight reg
+                unwrapped_fw_cells[i].add_loss(
+                        tf.multiply(hparams.l2_lambda, tf.nn.l2_loss(unwrapped_fw_cells[i].weights[0]), name="fw_%d_l2w"%(i))
+                        )
+                unwrapped_bw_cells[i].add_loss(
+                        tf.multiply(hparams.l2_lambda, tf.nn.l2_loss(unwrapped_bw_cells[i].weights[0]), name="bw_%d_l2w"%(i))
+                        )
+                # add activity reg to last layer
+                if i == range(hparams.num_lm_layers)[-1]:
+                    unwrapped_fw_cells[i].add_loss(
+                            tf.multiply(hparams.l2_alpha, tf.nn.l2_loss(output_fw), name="fw_%d_l2ar"%(i)),
+                            inputs=input_fw
+                            )
+                    unwrapped_bw_cells[i].add_loss(
+                            tf.multiply(hparams.l2_alpha, tf.nn.l2_loss(output_bw), name="bw_%d_l2ar"%(i)),
+                            inputs=input_bw
+                            )
 
-                outputs.append((output_fw, output_bw))
+                outputs.append([output_fw, output_bw])
 
             for i in range(len(outputs)):
                 outputs[i][1] =tf.reverse_sequence(outputs[i][1],
@@ -135,15 +159,21 @@ class CBDLMModel(BaseModel):
                                                               labels=seq_out,
                                                               name="crossent")
 
-        seq_loss = tf.reduce_sum(crossent*mask, axis=1)/tf.cast(lens, tf.float32)
-        loss = tf.reduce_sum(seq_loss)/tf.cast(hparams.batch_size, tf.float32)
-        # loss = tf.reduce_sum(crossent*mask)/tf.cast(hparams.batch_size, tf.float32)
+
+        seq_loss = tf.reduce_sum(
+                tf.reduce_sum(crossent*mask, axis=1)/tf.cast(lens, tf.float32)
+                )/tf.cast(hparams.batch_size, tf.float32)
+        reg_loss = tf.add_n(tf.losses.get_regularization_losses(), name="reg_loss")
+
+        loss = seq_loss + reg_loss
 
         metrics = []
         update_ops = []
         if mode == tf.contrib.learn.ModeKeys.EVAL:
             # mean eval loss
             loss, loss_update = tf.metrics.mean(values=loss)
+            seq_loss, seq_loss_update = tf.metrics.mean(values=seq_loss)
+            reg_loss, reg_loss_update = tf.metrics.mean(values=reg_loss)
 
             predictions = tf.argmax(input=logits, axis=-1)
             tgt_labels = tf.argmax(input=seq_out, axis=-1)
@@ -160,7 +190,7 @@ class CBDLMModel(BaseModel):
                                                        weights=mask_flat)
             tf.add_to_collection("eval", cm_summary(cm, hparams.num_labels))
             metrics = [acc, cm]
-            update_ops = [loss_update, acc_update, cm_update]
+            update_ops = [loss_update, seq_loss_update, reg_loss_update, acc_update, cm_update]
 
         return outputs, logits, loss, metrics, update_ops
 
