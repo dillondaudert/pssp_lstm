@@ -39,7 +39,7 @@ class BaseModel(object):
         # training update ops
         if self.mode == tf.contrib.learn.ModeKeys.TRAIN:
 
-            opt = tf.train.RMSPropOptimizer(learning_rate=hparams.learning_rate)
+            opt = tf.train.GradientDescentOptimizer(learning_rate=hparams.learning_rate)
 
             # gradients
             gradients = tf.gradients(self.train_loss,
