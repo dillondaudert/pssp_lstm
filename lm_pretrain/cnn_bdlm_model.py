@@ -98,36 +98,28 @@ class CBDLMModel(BaseModel):
                                                 seq_axis=1)
 
             for i in range(hparams.num_lm_layers):
-                # get fw / bw outputs for each layer
-                input_fw = outputs[-1][0]
-                input_bw = outputs[-1][1]
+                with tf.name_scope("bdlm_layer_%d"%(i)):
+                    # get fw / bw outputs for each layer
+                    input_fw = outputs[-1][0]
+                    input_bw = outputs[-1][1]
 
-                output_fw, _ = tf.nn.dynamic_rnn(
-                        cell=fw_cells[i],
-                        inputs=input_fw,
-                        sequence_length=lens+tf.constant(2*hparams.filter_size + 1, dtype=tf.int32),
-                        dtype=tf.float32)
-                output_bw, _ = tf.nn.dynamic_rnn(
-                        cell=bw_cells[i],
-                        inputs=input_bw,
-                        sequence_length=lens+tf.constant(2*hparams.filter_size + 1, dtype=tf.int32),
-                        dtype=tf.float32)
-                # add weight reg
-                unwrapped_fw_cells[i].add_loss(
-                        tf.multiply(hparams.l2_lambda, tf.nn.l2_loss(unwrapped_fw_cells[i].weights[0]), name="fw_%d_l2w"%(i))
-                        )
-                unwrapped_bw_cells[i].add_loss(
-                        tf.multiply(hparams.l2_lambda, tf.nn.l2_loss(unwrapped_bw_cells[i].weights[0]), name="bw_%d_l2w"%(i))
-                        )
-                # add activity reg to last layer
-                if i == range(hparams.num_lm_layers)[-1]:
+                    output_fw, _ = tf.nn.dynamic_rnn(
+                            cell=fw_cells[i],
+                            inputs=input_fw,
+                            sequence_length=lens+tf.constant(2*hparams.filter_size + 1, dtype=tf.int32),
+                            dtype=tf.float32)
+                    output_bw, _ = tf.nn.dynamic_rnn(
+                            cell=bw_cells[i],
+                            inputs=input_bw,
+                            sequence_length=lens+tf.constant(2*hparams.filter_size + 1, dtype=tf.int32),
+                            dtype=tf.float32)
+                with tf.name_scope("l2_losses"):
+                    # add weight reg
                     unwrapped_fw_cells[i].add_loss(
-                            tf.multiply(hparams.l2_alpha, tf.nn.l2_loss(output_fw), name="fw_%d_l2ar"%(i)),
-                            inputs=input_fw
+                            tf.multiply(hparams.l2_lambda, tf.nn.l2_loss(unwrapped_fw_cells[i].weights[0]), name="fw_%d_l2w"%(i))
                             )
                     unwrapped_bw_cells[i].add_loss(
-                            tf.multiply(hparams.l2_alpha, tf.nn.l2_loss(output_bw), name="bw_%d_l2ar"%(i)),
-                            inputs=input_bw
+                            tf.multiply(hparams.l2_lambda, tf.nn.l2_loss(unwrapped_bw_cells[i].weights[0]), name="bw_%d_l2w"%(i))
                             )
 
                 outputs.append([output_fw, output_bw])
@@ -150,10 +142,26 @@ class CBDLMModel(BaseModel):
                                         training=mode == tf.contrib.learn.ModeKeys.TRAIN)
             logits = tf.layers.dense(inputs=rnn_out,
                                      units=hparams.num_labels,
+                                     kernel_regularizer=lambda inp: hparams.l2_lambda*tf.nn.l2_loss(inp),
                                      trainable=not hparams.freeze_bdlm)
 
         # mask out entries longer than target sequence length
         mask = tf.sequence_mask(lens, dtype=tf.float32)
+
+        #with tf.name_scope("l2_act_reg"):
+        #    l2_act_loss = lambda out: hparams.l2_alpha*(tf.nn.l2_loss(out*mask)/tf.cast(lens, tf.float32))
+            # add activity reg to last layer
+            # ignore the loss contributed by time steps longer than sequence length
+        #    unwrapped_fw_cells[-1].add_loss(
+        #            l2_act_loss(output_fw),
+        #            inputs=input_fw
+        #            )
+        #    unwrapped_bw_cells[-1].add_loss(
+        #            tf.multiply(hparams.l2_alpha,
+        #                        tf.nn.l2_loss(output_bw),
+        #                        name="bw_%d_l2ar"%(i)),
+        #            inputs=input_bw
+        #            )
 
         crossent = tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits,
                                                               labels=seq_out,
@@ -173,7 +181,9 @@ class CBDLMModel(BaseModel):
             # mean eval loss
             loss, loss_update = tf.metrics.mean(values=loss)
             seq_loss, seq_loss_update = tf.metrics.mean(values=seq_loss)
+            tf.summary.scalar("eval_seq_loss", seq_loss, collections=["eval"])
             reg_loss, reg_loss_update = tf.metrics.mean(values=reg_loss)
+            tf.summary.scalar("eval_reg_loss", reg_loss, collections=["eval"])
 
             predictions = tf.argmax(input=logits, axis=-1)
             tgt_labels = tf.argmax(input=seq_out, axis=-1)
