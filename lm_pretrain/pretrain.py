@@ -50,12 +50,6 @@ def pretrain(hparams):
                                                train_tuple.graph,
                                                max_queue=25,
                                                flush_secs=30)
-        # NOTE: visualize embeddings
-        config = projector.ProjectorConfig()
-        embedding_config = config.embeddings.add()
-        embedding_config.tensor_name = eval_tuple.graph.get_tensor_by_name("bdlm/in_embed/kernel:0").name
-        embedding_config.metadata_path = "/home/dillon/github/pssp_lstm/lm_pretrain/aa_metadata.tsv"
-        projector.visualize_embeddings(summary_writer, config)
 
     train_tuple.session.run([initializer])
 
