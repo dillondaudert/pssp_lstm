@@ -148,20 +148,22 @@ class CBDLMModel(BaseModel):
         # mask out entries longer than target sequence length
         mask = tf.sequence_mask(lens, dtype=tf.float32)
 
-        #with tf.name_scope("l2_act_reg"):
-        #    l2_act_loss = lambda out: hparams.l2_alpha*(tf.nn.l2_loss(out*mask)/tf.cast(lens, tf.float32))
-            # add activity reg to last layer
+        # add activity reg to last layer
+        with tf.name_scope("l2_act_reg"):
+            l2_act_loss = lambda act: tf.reduce_sum(
+                    tf.reduce_sum(hparams.l2_alpha*tf.square(act)*mask, axis=[1, 2])/tf.cast(lens, tf.float32)
+                    )
             # ignore the loss contributed by time steps longer than sequence length
-        #    unwrapped_fw_cells[-1].add_loss(
-        #            l2_act_loss(output_fw),
-        #            inputs=input_fw
-        #            )
-        #    unwrapped_bw_cells[-1].add_loss(
-        #            tf.multiply(hparams.l2_alpha,
-        #                        tf.nn.l2_loss(output_bw),
-        #                        name="bw_%d_l2ar"%(i)),
-        #            inputs=input_bw
-        #            )
+            fw_act_loss = l2_act_loss(output_fw)
+            bw_act_loss = l2_act_loss(output_bw)
+            unwrapped_fw_cells[-1].add_loss(
+                    fw_act_loss,
+                    inputs=input_fw
+                    )
+            unwrapped_bw_cells[-1].add_loss(
+                    bw_act_loss,
+                    inputs=input_bw
+                    )
 
         crossent = tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits,
                                                               labels=seq_out,
@@ -190,6 +192,12 @@ class CBDLMModel(BaseModel):
             acc, acc_update = tf.metrics.accuracy(predictions=predictions,
                                                   labels=tgt_labels,
                                                   weights=mask)
+            # final layer activations
+            mean_seq_act = lambda act: tf.reduce_sum(
+                    tf.reduce_sum(act*mask, axis=1)/tf.expand_dims(tf.cast(lens, tf.float32), 1), axis=0)
+            tf.summary.histogram("activations/fw_2_activations", mean_seq_act(output_fw), collections=["eval"])
+            tf.summary.histogram("activations/bw_2_activations", mean_seq_act(output_bw), collections=["eval"])
+
             # confusion matrix
             targets_flat = tf.reshape(tgt_labels, [-1])
             predictions_flat = tf.reshape(predictions, [-1])
