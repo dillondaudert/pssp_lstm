@@ -87,8 +87,13 @@ class CBDLMModel(BaseModel):
                     bw_cell = tf.nn.rnn_cell.ResidualWrapper(bw_cell)
                 # split fw and bw between GPUs
                 if hparams.num_gpus == 2:
-                    fw_cell = tf.nn.rnn_cell.DeviceWrapper(fw_cell, "/device:GPU:0")
-                    bw_cell = tf.nn.rnn_cell.DeviceWrapper(bw_cell, "/device:GPU:1")
+                    fw_dev = "/device:GPU:0"
+                    bw_dev = "/device:GPU:1"
+                    fw_cell = tf.nn.rnn_cell.DeviceWrapper(fw_cell, fw_dev)
+                    bw_cell = tf.nn.rnn_cell.DeviceWrapper(bw_cell, bw_dev)
+                else:
+                    fw_dev = "/device:GPU:0"
+                    bw_dev = "/device:GPU:0"
                 fw_cells.append(fw_cell)
                 bw_cells.append(bw_cell)
 
@@ -103,21 +108,23 @@ class CBDLMModel(BaseModel):
                     input_fw = outputs[-1][0]
                     input_bw = outputs[-1][1]
 
+
+                with tf.device(fw_dev):
                     output_fw, _ = tf.nn.dynamic_rnn(
                             cell=fw_cells[i],
                             inputs=input_fw,
                             sequence_length=lens+tf.constant(2*hparams.filter_size + 1, dtype=tf.int32),
                             dtype=tf.float32)
+                    # add weight reg
+                    unwrapped_fw_cells[i].add_loss(
+                            tf.multiply(hparams.l2_lambda, tf.nn.l2_loss(unwrapped_fw_cells[i].weights[0]), name="fw_%d_l2w"%(i))
+                            )
+                with tf.device(bw_dev):
                     output_bw, _ = tf.nn.dynamic_rnn(
                             cell=bw_cells[i],
                             inputs=input_bw,
                             sequence_length=lens+tf.constant(2*hparams.filter_size + 1, dtype=tf.int32),
                             dtype=tf.float32)
-                with tf.name_scope("l2_losses"):
-                    # add weight reg
-                    unwrapped_fw_cells[i].add_loss(
-                            tf.multiply(hparams.l2_lambda, tf.nn.l2_loss(unwrapped_fw_cells[i].weights[0]), name="fw_%d_l2w"%(i))
-                            )
                     unwrapped_bw_cells[i].add_loss(
                             tf.multiply(hparams.l2_lambda, tf.nn.l2_loss(unwrapped_bw_cells[i].weights[0]), name="bw_%d_l2w"%(i))
                             )
@@ -151,7 +158,7 @@ class CBDLMModel(BaseModel):
         # add activity reg to last layer
         with tf.name_scope("l2_act_reg"):
             l2_act_loss = lambda act: tf.reduce_sum(
-                    tf.reduce_sum(hparams.l2_alpha*tf.square(act)*mask, axis=[1, 2])/tf.cast(lens, tf.float32)
+                    tf.reduce_sum(hparams.l2_alpha*tf.square(act)*tf.expand_dims(mask, axis=-1), axis=[1, 2])/tf.cast(lens, tf.float32)
                     )
             # ignore the loss contributed by time steps longer than sequence length
             fw_act_loss = l2_act_loss(output_fw)
@@ -194,9 +201,11 @@ class CBDLMModel(BaseModel):
                                                   weights=mask)
             # final layer activations
             mean_seq_act = lambda act: tf.reduce_sum(
-                    tf.reduce_sum(act*mask, axis=1)/tf.expand_dims(tf.cast(lens, tf.float32), 1), axis=0)
-            tf.summary.histogram("activations/fw_2_activations", mean_seq_act(output_fw), collections=["eval"])
-            tf.summary.histogram("activations/bw_2_activations", mean_seq_act(output_bw), collections=["eval"])
+                    tf.reduce_sum(act*tf.expand_dims(mask, axis=-1), axis=1)/tf.expand_dims(tf.cast(lens, tf.float32), 1), axis=0)
+            mean_act_fw, mean_act_fw_update = tf.metrics.mean_tensor(values=mean_seq_act(output_fw))
+            mean_act_bw, mean_act_bw_update = tf.metrics.mean_tensor(values=mean_seq_act(output_bw))
+            tf.summary.histogram("activations/fw_2_activations", mean_act_fw, collections=["eval"])
+            tf.summary.histogram("activations/bw_2_activations", mean_act_bw, collections=["eval"])
 
             # confusion matrix
             targets_flat = tf.reshape(tgt_labels, [-1])
@@ -208,7 +217,7 @@ class CBDLMModel(BaseModel):
                                                        weights=mask_flat)
             tf.add_to_collection("eval", cm_summary(cm, hparams.num_labels))
             metrics = [acc, cm]
-            update_ops = [loss_update, seq_loss_update, reg_loss_update, acc_update, cm_update]
+            update_ops = [loss_update, seq_loss_update, reg_loss_update, acc_update, cm_update, mean_act_fw_update, mean_act_bw_update]
 
         return outputs, logits, loss, metrics, update_ops
 

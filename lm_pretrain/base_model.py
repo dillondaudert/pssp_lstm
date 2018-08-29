@@ -45,7 +45,9 @@ class BaseModel(object):
 
             # gradients
             gradients = tf.gradients(self.train_loss,
-                                     params)
+                                     params,
+                                     colocate_gradients_with_ops=True,
+                                     )
 
             # clip by global norm
             clipped_gradients, gradient_norm = tf.clip_by_global_norm(gradients, hparams.max_gradient_norm)
