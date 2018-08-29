@@ -4,9 +4,10 @@ import tensorflow as tf
 from .bdlm_model import BDLMModel
 from .bdrnn_model import BDRNNModel
 from .van_bdrnn_model import VanillaBDRNNModel
+from .cnn_bdlm_model import CBDLMModel
 
-alphas = [512, 373, 267, 190, 135, 96]
-layers = [1, 2, 4, 8, 16, 32]
+layers = [0]
+alphas = [0]
 i = 0
 
 hparams = {
@@ -21,23 +22,23 @@ hparams = {
         dropout=0.4,
         recurrent_state_dropout=0.4,
         recurrent_input_dropout=0.3,
-        l2_lambda=0.001,
-        l2_alpha=2,
-        l2_beta=1,
+        l2_lambda=0.0005,
+        l2_alpha=0.01,
+        l2_beta=0.,
         batch_size=50,
         num_epochs=6,
         max_gradient_norm=1.0,
         learning_rate=0.1,
-        num_keep_ckpts=12,
-        eval_step=500,
+        max_patience=8,
+        eval_step=200,
         model="cnn_bdlm",
         Model=CBDLMModel,
-        bdlm_ckpt="",
         freeze_bdlm=False,
         file_pattern="ur50_*.tfrecords",
-        file_shuffle_seed=12345,
+        file_shuffle_seed=123456,
         num_train_files=1000,
         num_valid_files=10,
+        num_gpus=2,
         ),
    "bdlm": tf.contrib.training.HParams(
         num_phyche_features=7,
@@ -58,7 +59,6 @@ hparams = {
         eval_step=200,
         model="bdlm",
         Model=BDLMModel,
-        bdlm_ckpt="",
         freeze_bdlm=False,
         file_pattern="ur50_*.tfrecords",
         file_shuffle_seed=12345,
