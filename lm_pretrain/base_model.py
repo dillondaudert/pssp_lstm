@@ -109,7 +109,7 @@ class BaseModel(object):
                             self.train_summary],
                            options=run_options,
                            run_metadata=run_metadata,
-                           feed_dict={self._lr: self.learning_rate)
+                           feed_dict={self._lr: self.learning_rate})
 
         writer.add_run_metadata(run_metadata, "step "+str(retvals[2]), retvals[2])
         return retvals
