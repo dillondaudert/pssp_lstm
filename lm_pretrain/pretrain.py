@@ -71,7 +71,7 @@ def pretrain(hparams):
     best_step = -1
     best_checkpoint_path = ""
     # Train until the dataset throws an error (at the end of num_epochs)
-    while patience < max_patience:
+    while True:
         step_time = []
         try:
             curr_time = process_time()
@@ -104,8 +104,6 @@ def pretrain(hparams):
                 while True:
                     try:
                         inp_tuple, eval_probs, eval_loss, eval_acc, _, eval_summary, _ = eval_tuple.model.eval(eval_tuple.session)
-                        #print(np.argmax(inp_tuple[2][0,:,:], axis=-1))
-                        #print(np.argmax(eval_probs[0,:,:], axis=-1))
                     except tf.errors.OutOfRangeError:
                         print("Step: %d, Eval Loss: %4.4f, Eval Accuracy: %1.4f" % (global_step,
                                                                               eval_loss,
@@ -120,7 +118,11 @@ def pretrain(hparams):
                             best_checkpoint_path = checkpoint_path
                         else:
                             patience += 1
-                            print("Patience: %d" % patience)
+                            if patience > max_patience:
+                                patience = 0
+                                lr = train_tuple.model.learning_rate / 2.
+                                print("Halving learning rate: %g" % lr)
+                                train_tuple.model.update_learning_rate(lr)
                             # delete latest checkpoint
                             tf.train.remove_checkpoint(checkpoint_path)
 
