@@ -1,10 +1,12 @@
 import tensorflow as tf
+from tensorflow.python import debug as tf_debug
 from tensorflow.contrib.rnn import LSTMBlockCell, GRUBlockCell, MultiRNNCell
 from custom_rnn.stlstm import STLSTMCell
 from collections import namedtuple
 from .dataset import create_dataset
 
 ModelTuple = namedtuple('ModelTuple', ['graph', 'iterator', 'model', 'session'])
+DEBUG=False
 
 def create_model(hparams, mode):
     """
@@ -16,7 +18,11 @@ def create_model(hparams, mode):
     """
 
     graph = tf.Graph()
-    sess = tf.Session(graph=graph)
+    sess = tf.Session(graph=graph,
+                      config=tf.ConfigProto(allow_soft_placement=True))
+    if mode == tf.contrib.learn.ModeKeys.TRAIN and DEBUG:
+        sess = tf_debug.TensorBoardDebugWrapperSession(sess, "localhost:6064")
+
 
     with graph.as_default():
         with tf.name_scope("input_pipe"):
