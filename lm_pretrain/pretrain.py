@@ -2,6 +2,7 @@
 # basic example of training a network end-to-end
 from time import process_time
 from pathlib import Path
+import os
 import tensorflow as tf
 import numpy as np
 from tensorflow.contrib.tensorboard.plugins import projector
@@ -65,9 +66,10 @@ def pretrain(hparams):
     profile_next_step = False
     eval_step = hparams.eval_step
     patience = 0
-    max_patience = hparams.num_keep_ckpts-1
+    max_patience = hparams.max_patience
     best_eval_loss = np.Inf
     best_step = -1
+    best_checkpoint_path = ""
     # Train until the dataset throws an error (at the end of num_epochs)
     while patience < max_patience:
         step_time = []
@@ -85,12 +87,12 @@ def pretrain(hparams):
             # write train summaries
             if global_step == 1 and hparams.logging:
                 summary_writer.add_summary(summary, global_step)
-            if global_step % 15 == 0:
+            if global_step % 20 == 0:
                 if hparams.logging:
                     summary_writer.add_summary(summary, global_step)
                 print("Step: %d, Training Loss: %4.4f, Avg Sec/Step: %2.2f" % (global_step, train_loss, np.mean(step_time)))
 
-            if global_step % eval_step == 0:
+            if global_step % eval_step == 1:
                 step_time = []
                 profile_next_step = True
                 # Do one evaluation
@@ -112,13 +114,21 @@ def pretrain(hparams):
                             patience = 0
                             best_eval_loss = eval_loss
                             best_step = global_step
+                            if best_checkpoint_path != "":
+                                # remove previous checkpoint
+                                tf.train.remove_checkpoint(best_checkpoint_path)
+                            best_checkpoint_path = checkpoint_path
                         else:
                             patience += 1
                             print("Patience: %d" % patience)
+                            # delete latest checkpoint
+                            tf.train.remove_checkpoint(checkpoint_path)
 
                         if hparams.logging:
                             summary_writer.add_summary(eval_summary, global_step)
+
                         break
+
 
         except tf.errors.OutOfRangeError:
             print("- End of Trainig -")
