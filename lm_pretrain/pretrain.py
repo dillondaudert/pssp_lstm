@@ -69,7 +69,6 @@ def pretrain(hparams):
     max_patience = hparams.max_patience
     best_eval_loss = np.Inf
     best_step = -1
-    best_checkpoint_path = ""
     # Train until the dataset throws an error (at the end of num_epochs)
     while True:
         step_time = []
@@ -112,19 +111,18 @@ def pretrain(hparams):
                             patience = 0
                             best_eval_loss = eval_loss
                             best_step = global_step
-                            if best_checkpoint_path != "":
-                                # remove previous checkpoint
-                                tf.train.remove_checkpoint(best_checkpoint_path)
-                            best_checkpoint_path = checkpoint_path
+                            eval_tuple.model.saver.save(eval_tuple.session,
+                                                        ckptsdir+"/best_model.ckpt",
+                                                        global_step=best_step)
                         else:
                             patience += 1
                             if patience > max_patience:
                                 patience = 0
+                                max_patience = int(max_patience*1.5)
                                 lr = train_tuple.model.learning_rate / 2.
                                 print("Halving learning rate: %g" % lr)
+                                print("Max patience now: %d" % max_patience)
                                 train_tuple.model.update_learning_rate(lr)
-                            # delete latest checkpoint
-                            tf.train.remove_checkpoint(checkpoint_path)
 
                         if hparams.logging:
                             summary_writer.add_summary(eval_summary, global_step)

@@ -70,7 +70,7 @@ class BaseModel(object):
             self.eval_summary = tf.summary.merge_all("eval")
 
 
-        self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=2)
+        self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=1)
         self.bdlm_saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="bdlm"))
 
     @staticmethod
