@@ -38,7 +38,7 @@ def cUR50_parser(record, hparams):
     """
 
     keys_to_features = {
-        "uniref_id": tf.FixedLenFeature([], tf.string),
+        "id": tf.FixedLenFeature([], tf.string),
         "seq_len": tf.FixedLenFeature([], tf.int64),
         "seq": tf.FixedLenFeature([], tf.string),
         "seq_phyche": tf.VarLenFeature(tf.float32),
@@ -46,7 +46,7 @@ def cUR50_parser(record, hparams):
 
     parsed = tf.parse_single_example(record, keys_to_features)
 
-    uniref_id = parsed["uniref_id"]
+    uniref_id = parsed["id"]
     seq_len = parsed["seq_len"]
     seq_len = tf.cast(seq_len, tf.int32)
     seq = parsed["seq"]
