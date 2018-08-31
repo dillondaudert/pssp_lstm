@@ -4,7 +4,7 @@ A Bidirectional RNN Model class.
 
 import tensorflow as tf
 from .base_model import BaseModel
-from .bdlm_model import BDLMModel
+from .cnn_bdlm_model import CBDLMModel
 from .model_helper import _create_rnn_cell
 from .metrics import streaming_confusion_matrix, cm_summary
 
@@ -30,10 +30,17 @@ class BDRNNModel(BaseModel):
         # if we aren't fine-tuning the bdlm, set lm_mode to eval
         lm_mode = mode if not hparams.freeze_bdlm else tf.contrib.learn.ModeKeys.EVAL
 
-        (lm_x, lm_out_embed), lm_logits, lm_loss, lm_metrics, lm_update_ops = \
-                BDLMModel._build_lm_graph(hparams.lm_hparams, (ids, lens, seq_in, phyche, seq_out), lm_mode)
+        outputs, lm_logits, lm_loss, lm_metrics, lm_update_ops = \
+                CBDLMModel._build_lm_graph(hparams.lm_hparams, (ids, lens, seq_in, phyche, seq_out), lm_mode)
 
-        x = tf.concat([lm_out_embed, pssm], axis=-1, name="bdrnn_input")
+        with tf.variable_scope("elmo", dtype=tf.float32, reuse=tf.AUTO_REUSE) as elmo_scope:
+            gamma = tf.get_variable("gamma", [1], initilizer=tf.constant_initializer(1.0))
+            s_task = tf.get_variable("s_task", [len(outputs)], initializer=tf.constant_initializer(1.0))
+            s_weights = tf.nn.softmax(s_task, name="s_weights")
+            elmo = gamma * tf.add_n(s_weights[i] * outputs[i])
+
+
+        x = tf.concat([elmo, pssm], axis=-1, name="bdrnn_input")
 
         drop_x = tf.layers.dropout(inputs=x,
                                    rate=hparams.dropout,
