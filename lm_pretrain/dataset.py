@@ -131,7 +131,6 @@ def create_dataset(hparams, mode):
                        tf.TensorShape([None, hparams.num_labels]), # ss
                        )
 
-
     # load file(s) and parse records
     if "file_pattern" in vars(hparams):
         dataset = _from_files(hparams, mode, parser)
@@ -140,6 +139,11 @@ def create_dataset(hparams, mode):
                                         else hparams.valid_file
         dataset = tf.data.TFRecordDataset(input_file).\
                       map(lambda x: parser(x, hparams), num_parallel_calls=4)
+
+    # filter sequences by length
+    dataset = dataset.filter(lambda id, len, *z: tf.logical_and(tf.greater(len, tf.constant(20, dtype=tf.int32)),
+                                                                tf.less(len, tf.constant(1040, dtype=tf.int32))))
+
 
     # shuffle and repeat
     if shuffle:
