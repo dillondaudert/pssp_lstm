@@ -182,7 +182,10 @@ class CBDLMModel(BaseModel):
                 )/tf.cast(hparams.batch_size, tf.float32)
         reg_loss = tf.add_n(tf.losses.get_regularization_losses(), name="reg_loss")
 
-        loss = seq_loss + reg_loss
+        if hparams.l2_alpha == 0. and hparams.l2_lambda == 0. and hparams.l2_beta == 0.:
+            loss = seq_loss
+        else:
+            loss = seq_loss + reg_loss
 
         metrics = []
         update_ops = []
