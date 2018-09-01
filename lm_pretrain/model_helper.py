@@ -101,10 +101,11 @@ def _create_rnn_cell(cell_type,
         if recurrent_dropout > 0.:
             single_cell = tf.contrib.rnn.DropoutWrapper(
                     cell=single_cell,
-                    state_keep_prob=1.0-recurrent_dropout if mode == tf.contrib.learn.ModeKeys.TRAIN else 1.0,
-                    #variational_recurrent=True,
-                    #input_size=tf.TensorShape([1]),
-                    #dtype=tf.float32,
+                    state_keep_prob=1.0-recurrent_state_dropout if mode == tf.contrib.learn.ModeKeys.TRAIN else 1.0,
+                    input_keep_prob=1.0-recurrent_input_dropout if mode == tf.contrib.learn.ModeKeys.TRAIN else 1.0,
+                    variational_recurrent=True,
+                    input_size=tf.TensorShape([1]),
+                    dtype=tf.float32,
                     )
         cell_list.append(single_cell)
 
