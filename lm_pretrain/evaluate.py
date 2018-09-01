@@ -6,7 +6,7 @@ import tensorflow as tf, numpy as np
 import pandas as pd
 from .model_helper import create_model
 
-def evaluate(hparams):
+def evaluate(hparams, outfile=None):
     """Evaluate a trained model"""
 
     eval_tuple = create_model(hparams, tf.contrib.learn.ModeKeys.EVAL)

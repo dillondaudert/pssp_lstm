@@ -50,6 +50,8 @@ def main():
     ev_parser.add_argument("-m", "--model", type=str, choices=HPARAM_CHOICES["model"],
                            required=True,
                            help=HPARAM_DESCS["model"][1])
+    ev_parser.add_argument("-o", "--outfile", type=str,
+                           help="the name of the output file. If provided, a csv of the results will be saved.")
 
     ev_parser.set_defaults(entry="evaluate")
 
@@ -108,7 +110,9 @@ def main():
         HPARAMS.ckpt = str(Path(args.ckpt).absolute())
         HPARAMS.valid_file = str(Path(args.data))
 
-        evaluate(HPARAMS)
+        outfile = str(Path(args.outfile))
+
+        evaluate(HPARAMS, outfile)
 
 
     else:
