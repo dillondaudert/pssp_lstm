@@ -54,8 +54,14 @@ def pretrain(hparams):
 
     train_tuple.session.run([initializer])
 
-    if "bdlm_ckpt" in vars(hparams):
-        train_tuple.model.bdlm_saver.restore(train_tuple.session, hparams.bdlm_ckpt)
+    if "bdrnn_ckpt" in vars(hparams):
+        train_tuple.model.saver.restore(train_tuple.session, hparams.bdrnn_ckpt)
+    elif "bdlm_ckpt" in vars(hparams):
+        if hparams.model == "bdrnn":
+            # the bdlm is a subgraph of the bdrnn
+            train_tuple.model.bdlm_saver.restore(train_tuple.session, hparams.bdlm_ckpt)
+        else:
+            train_tuple.model.saver.restore(train_tuple.session, hparams.bdlm_ckpt)
 
     start_time = process_time()
     # initialize the training dataset
