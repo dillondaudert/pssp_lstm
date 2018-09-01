@@ -67,7 +67,7 @@ class VanillaBDRNNModel(BaseModel):
             combined_outputs, output_state_fw, output_state_bw = \
                     tf.contrib.rnn.stack_bidirectional_dynamic_rnn(cells_fw=fw_cells,
                                                                    cells_bw=bw_cells,
-                                                                   inputs=drop_x,
+                                                                   inputs=rnn_x,
                                                                    sequence_length=lens,
                                                                    dtype=tf.float32,
                                                                    scope=bdrnn_scope)
