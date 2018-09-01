@@ -12,6 +12,7 @@ class BDRNNModel(BaseModel):
 
     def __init__(self, hparams, iterator, mode, scope=None):
         super(BDRNNModel, self).__init__(hparams, iterator, mode, scope=scope)
+        self.bdlm_saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="bdlm"))
 
     @staticmethod
     def _build_graph(hparams, inputs, mode, scope=None):
