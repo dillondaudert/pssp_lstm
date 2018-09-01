@@ -124,10 +124,8 @@ def pretrain(hparams):
                             patience += 1
                             if patience > max_patience:
                                 patience = 0
-                                max_patience = int(max_patience*1.5)
                                 lr = train_tuple.model.learning_rate / 2.
                                 print("Halving learning rate: %g" % lr)
-                                print("Max patience now: %d" % max_patience)
                                 train_tuple.model.update_learning_rate(lr)
 
                         if hparams.logging:
