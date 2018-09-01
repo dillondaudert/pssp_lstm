@@ -70,7 +70,7 @@ class BaseModel(object):
             self.eval_summary = tf.summary.merge_all("eval")
 
 
-        self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=1)
+        self.saver = tf.train.Saver(tf.global_variables(), max_to_keep=1, save_relative_paths=True)
 
     @staticmethod
     @abc.abstractmethod
