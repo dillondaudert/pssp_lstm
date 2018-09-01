@@ -99,7 +99,7 @@ def _create_rnn_cell(cell_type,
         if residual and i > 0:
             single_cell = tf.nn.rnn_cell.ResidualWrapper(
                     cell=single_cell)
-        if recurrent_dropout > 0.:
+        if recurrent_state_dropout > 0. or recurrent_input_dropout > 0.:
             single_cell = tf.contrib.rnn.DropoutWrapper(
                     cell=single_cell,
                     state_keep_prob=1.0-recurrent_state_dropout if mode == tf.contrib.learn.ModeKeys.TRAIN else 1.0,
