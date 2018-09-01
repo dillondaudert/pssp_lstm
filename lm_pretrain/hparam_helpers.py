@@ -35,7 +35,7 @@ HPARAM_DESCS = {
     "num_epochs": (int, "the number of epochs for training"),
     "max_gradient_norm": (float, "the maximum value for the gradient update norm, above which it is truncated"),
     "learning_rate": (float, "the learning rate for training"),
-    "num_keep_ckpts": (int, "the number of recent model checkpoints to keep at a time"),
+    "max_patience": (int, "the number of non-decreasing eval steps to wait before learning rate is reduced"),
     "eval_step": (int, "the number of training steps to do between each validation pass"),
     "model": (str, "the kind of model to train"),
     "Model": (object, "TODO: consolidate model/Model"),
