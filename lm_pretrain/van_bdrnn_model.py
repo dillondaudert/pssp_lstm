@@ -29,20 +29,17 @@ class VanillaBDRNNModel(BaseModel):
         seq_in = seq_in[:, 1:-1, :]
         phyche = phyche[:, 1:-1, :]
 
+        x = tf.concat([seq_in, phyche], axis=-1)
+
         in_embed = tf.layers.Dense(units=hparams.embed_units,
-                                   kernel_initializer=tf.glorot_uniform_initializer(),
-                                   use_bias=False,
-                                   name="bdlm/in_embed")(seq_in)
+                                   activation=tf.nn.relu,
+                                   kernel_initializer=tf.glorot_uniform_initializer())(x)
 
-        x = tf.concat([in_embed, phyche, pssm], axis=-1, name="bdrnn_input")
-
-        drop_x = tf.layers.dropout(inputs=x,
+        rnn_x = tf.layers.dropout(inputs=tf.concat([in_embed, pssm],
+                                                    axis=-1,
+                                                    name="rnn_x"),
                                    rate=hparams.dropout,
                                    training=mode==tf.contrib.learn.ModeKeys.TRAIN)
-
-        #if hparams.freeze_bdlm:
-        #    print("Stopping gradients to bdlm.")
-        #    x = tf.stop_gradient(x)
 
         with tf.variable_scope(scope or "bdrnn", dtype=tf.float32) as bdrnn_scope:
             # create bdrnn
