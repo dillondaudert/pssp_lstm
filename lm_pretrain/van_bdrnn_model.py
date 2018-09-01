@@ -48,7 +48,8 @@ class VanillaBDRNNModel(BaseModel):
                                         num_layers=hparams.num_layers,
                                         mode=mode,
                                         residual=hparams.residual,
-                                        recurrent_dropout=hparams.recurrent_dropout,
+                                        recurrent_state_dropout=hparams.recurrent_state_dropout,
+                                        recurrent_input_dropout=hparams.recurrent_input_dropout,
                                         as_list=True,
                                         )
 
@@ -57,7 +58,8 @@ class VanillaBDRNNModel(BaseModel):
                                         num_layers=hparams.num_layers,
                                         mode=mode,
                                         residual=hparams.residual,
-                                        recurrent_dropout=hparams.recurrent_dropout,
+                                        recurrent_state_dropout=hparams.recurrent_state_dropout,
+                                        recurrent_input_dropout=hparams.recurrent_input_dropout,
                                         as_list=True,
                                         )
 

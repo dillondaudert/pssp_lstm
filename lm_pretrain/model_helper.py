@@ -70,7 +70,8 @@ def _create_rnn_cell(cell_type,
                      mode,
                      residual=False,
                      as_list=False,
-                     recurrent_dropout=0.0,
+                     recurrent_state_dropout=0.0,
+                     recurrent_input_dropout=0.0,
                      trainable=True):
     """Create a list of RNN cells.
 
