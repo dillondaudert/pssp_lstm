@@ -43,9 +43,9 @@ def main():
 
     ev_parser = subparsers.add_parser("evaluate", help="Evaluate a trained model")
 
-    ev_parser.add_argument("datadir", type=str,
-                           help="the directory where the cpdb513_test.tfrecords file is located")
     ev_parser.add_argument("ckpt", type=str, help="a tf model checkpoint file.")
+    ev_parser.add_argument("data", type=str,
+                           help="the data to evaluate against")
 
     ev_parser.add_argument("-m", "--model", type=str, choices=HPARAM_CHOICES["model"],
                            required=True,
@@ -106,14 +106,7 @@ def main():
         model_hparams = args.model
         HPARAMS = hparams[model_hparams]
         HPARAMS.ckpt = str(Path(args.ckpt).absolute())
-        HPARAMS.train_file = str(Path(args.datadir, HPARAMS.train_file).absolute())
-        HPARAMS.valid_file = str(Path(args.datadir, HPARAMS.valid_file).absolute())
-        HPARAMS.test_file = str(Path(args.datadir, HPARAMS.test_file).absolute())
-        HPARAMS.pretrained = True
-        HPARAMS.bdlm_ckpt = ""
-        LM_HPARAMS = hparams["bdlm"]
-        HPARAMS.lm_hparams = LM_HPARAMS
-        HPARAMS.freeze_bdlm = True
+        HPARAMS.valid_file = str(Path(args.data))
 
         evaluate(HPARAMS)
 
