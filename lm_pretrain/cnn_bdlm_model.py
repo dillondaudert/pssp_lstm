@@ -31,7 +31,11 @@ class CBDLMModel(BaseModel):
 
         ids, lens, seq_in, phyche, seq_out = inputs
 
-        x = tf.concat([seq_in, phyche], axis=-1)
+        seq_dense = tf.layers.dense(inputs=seq_in,
+                                    units=25,
+                                    use_bias=False)
+
+        x = tf.concat([seq_dense, phyche], axis=-1)
 
         outputs = []
 
