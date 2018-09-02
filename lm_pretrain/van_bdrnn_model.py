@@ -29,13 +29,12 @@ class VanillaBDRNNModel(BaseModel):
         seq_in = seq_in[:, 1:-1, :]
         phyche = phyche[:, 1:-1, :]
 
-        x = tf.concat([seq_in, phyche], axis=-1)
 
         in_embed = tf.layers.Dense(units=hparams.embed_units,
-                                   activation=tf.nn.relu,
-                                   kernel_initializer=tf.glorot_uniform_initializer())(x)
+                                   use_bias=False,
+                                   kernel_initializer=tf.glorot_uniform_initializer())(seq_in)
 
-        rnn_x = tf.layers.dropout(inputs=tf.concat([in_embed, pssm],
+        rnn_x = tf.layers.dropout(inputs=tf.concat([in_embed, phyche, pssm],
                                                     axis=-1,
                                                     name="rnn_x"),
                                    rate=hparams.dropout,
