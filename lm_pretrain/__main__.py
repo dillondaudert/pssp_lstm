@@ -62,11 +62,12 @@ def main():
         HPARAMS = hparams[model_hparams]
         print("Model: %s, HPARAMS: %s" % (args.model, model_hparams))
 
+        if args.bdlm_ckpt != "":
+            HPARAMS.bdlm_ckpt = args.bdlm_ckpt
+        elif args.bdrnn_ckpt != "":
+            HPARAMS.bdrnn_ckpt = args.bdrnn_ckpt
+
         if args.model == "bdrnn":
-            if args.bdlm_ckpt != "":
-                HPARAMS.bdlm_ckpt = args.bdlm_ckpt
-            elif args.bdrnn_ckpt != "":
-                HPARAMS.bdrnn_ckpt = args.bdrnn_ckpt
 
             HPARAMS.freeze_bdlm = args.freeze_bdlm
             if not args.freeze_bdlm and args.loss_weights is not None:
