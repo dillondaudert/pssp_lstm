@@ -23,6 +23,7 @@ class BaseModel(object):
         tf.get_variable_scope().set_initializer(initializer)
 
         self.inputs = self.iterator.get_next()
+        self.outputs = None
         res = self._build_graph(hparams, self.inputs, mode, scope=scope)
 
         # Graph losses
@@ -35,6 +36,8 @@ class BaseModel(object):
             self.accuracy = res[2][0]
             self.confusion = res[2][1]
             self.update_metrics = res[3]
+            if len(res) == 5:
+                self.outputs = res[4]
 
         params = tf.trainable_variables()
 
@@ -119,10 +122,13 @@ class BaseModel(object):
     def eval(self, sess):
         """Evaluate the model."""
         assert self.mode == tf.contrib.learn.ModeKeys.EVAL
-        return sess.run([self.inputs,
-                         self.eval_probs,
-                         self.eval_loss,
-                         self.accuracy,
-                         self.confusion,
-                         self.eval_summary,
-                         self.update_metrics])
+        fetches = [self.inputs,
+                   self.eval_probs,
+                   self.eval_loss,
+                   self.accuracy,
+                   self.confusion,
+                   self.eval_summary,
+                   self.update_metrics,
+                   self.outputs]
+
+        return sess.run(fetches)
