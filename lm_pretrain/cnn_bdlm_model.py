@@ -23,7 +23,7 @@ class CBDLMModel(BaseModel):
             A tuple with (logits, loss, metrics, update_ops)
         """
         outputs, logits, loss, metrics, update_ops = CBDLMModel._build_lm_graph(hparams, inputs, mode, scope)
-        return logits, loss, metrics, update_ops
+        return logits, loss, metrics, update_ops, outputs
 
 
     @staticmethod
