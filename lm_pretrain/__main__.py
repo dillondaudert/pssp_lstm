@@ -111,7 +111,10 @@ def main():
         HPARAMS.ckpt = str(Path(args.ckpt).absolute())
         HPARAMS.valid_file = str(Path(args.data))
 
-        outfile = str(Path(args.outfile))
+        if args.outfile is not None:
+            outfile = str(Path(args.outfile))
+        else:
+            outfile = args.outfile
 
         evaluate(HPARAMS, outfile)
 
