@@ -128,7 +128,8 @@ class BaseModel(object):
                    self.accuracy,
                    self.confusion,
                    self.eval_summary,
-                   self.update_metrics,
-                   self.outputs]
+                   self.update_metrics]
+        if self.outputs is not None:
+            fetches.append(self.outputs)
 
         return sess.run(fetches)
