@@ -16,7 +16,7 @@ def _lm_map_func(hparams, sos_id, eos_id, prot_size):
         seq = tf.cast(hparams.prot_lookup_table.lookup(seq), tf.int32)
         # prepend/append SOS/EOS tokens
         seq_in = tf.concat(([sos_id], seq, [eos_id]), 0)
-        if hparams.model == "cnn_bdlm":
+        if "filter_size" in vars(hparams):
             k = hparams.filter_size
         else:
             k = 1
@@ -27,7 +27,7 @@ def _lm_map_func(hparams, sos_id, eos_id, prot_size):
         seq_in = tf.nn.embedding_lookup(prot_eye, seq_in)
         seq_out = tf.nn.embedding_lookup(prot_eye, seq)
         # pad zeros to match filters
-        if hparams.model == "cnn_bdlm":
+        if k-1 > 0:
             pad = tf.zeros(shape=(k-1, prot_size))
             seq_in = tf.concat([pad, seq_in, pad], 0)
         return id, seq_len, seq_in, phyche, seq_out
@@ -155,7 +155,7 @@ def create_dataset(hparams, mode):
     # record transformations
     dataset = dataset.map(map_fn, num_parallel_calls=4)
 
-    if hparams.model == "cnn_bdlm":
+    if "filter_size" in vars(hparams):
         k = hparams.filter_size
     else:
         k = 1
