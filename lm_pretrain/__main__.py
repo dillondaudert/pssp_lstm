@@ -72,7 +72,7 @@ def main():
             HPARAMS.freeze_bdlm = args.freeze_bdlm
             if not args.freeze_bdlm and args.loss_weights is not None:
                 HPARAMS.loss_weights = args.loss_weights
-            LM_HPARAMS = hparams["bdlm"]
+            LM_HPARAMS = hparams["cnn_bdlm"]
             LM_HPARAMS.freeze_bdlm = args.freeze_bdlm
             HPARAMS.lm_hparams = LM_HPARAMS
 
