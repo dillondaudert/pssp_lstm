@@ -45,7 +45,8 @@ class BDRNNModel(BaseModel):
             gamma = tf.get_variable("gamma", [1], initializer=tf.constant_initializer(1.0))
             s_task = tf.get_variable("s_task", [len(outputs)], initializer=tf.constant_initializer(1.0))
             s_weights = tf.nn.softmax(s_task, name="s_weights")
-            elmo = gamma * tf.add_n(tf.multiply(s_weights, outputs))
+            weighted_sum = sum(s_weights[i]*outputs[i] for i in range(len(outputs)))
+            elmo = gamma * weighted_sum
 
 
         x = tf.concat([elmo, pssm], axis=-1, name="bdrnn_input")
@@ -65,7 +66,8 @@ class BDRNNModel(BaseModel):
                                         num_layers=hparams.num_layers,
                                         mode=mode,
                                         residual=hparams.residual,
-                                        recurrent_dropout=hparams.recurrent_dropout,
+                                        recurrent_state_dropout=hparams.recurrent_state_dropout,
+                                        recurrent_input_dropout=hparams.recurrent_input_dropout,
                                         as_list=True,
                                         )
 
@@ -74,7 +76,8 @@ class BDRNNModel(BaseModel):
                                         num_layers=hparams.num_layers,
                                         mode=mode,
                                         residual=hparams.residual,
-                                        recurrent_dropout=hparams.recurrent_dropout,
+                                        recurrent_state_dropout=hparams.recurrent_state_dropout,
+                                        recurrent_input_dropout=hparams.recurrent_input_dropout,
                                         as_list=True,
                                         )
 
