@@ -37,7 +37,7 @@ class CBDLMModel(BaseModel):
 
         x = tf.concat([seq_dense, phyche], axis=-1)
 
-        outputs = []
+        _outputs = []
 
         with tf.variable_scope(scope or "cnn_embed", dtype=tf.float32) as cnn_scope:
             cnn_embed = tf.layers.Conv1D(filters=hparams.num_filters,
@@ -55,7 +55,7 @@ class CBDLMModel(BaseModel):
                                     training=mode == tf.contrib.learn.ModeKeys.TRAIN)
             z_0 = embed_proj(z_0)
 
-            outputs.append([z_0, z_0])
+            _outputs.append([z_0, z_0])
 
 
         with tf.variable_scope(scope or "bdlm", dtype=tf.float32) as bdlm_scope:
@@ -101,23 +101,23 @@ class CBDLMModel(BaseModel):
                 fw_cells.append(fw_cell)
                 bw_cells.append(bw_cell)
 
-            # reverse the bw inputs, then reverse all outputs after dynamic_rnn
-            outputs[0][1] = tf.reverse_sequence(outputs[0][1],
-                                                seq_lengths=lens+tf.constant(2*hparams.filter_size+1, dtype=tf.int32),
+            # reverse the bw inputs, then reverse all _outputs after dynamic_rnn
+            _outputs[0][1] = tf.reverse_sequence(_outputs[0][1],
+                                                seq_lengths=lens+tf.constant(hparams.filter_size+1, dtype=tf.int32),
                                                 seq_axis=1)
 
             for i in range(hparams.num_lm_layers):
                 with tf.name_scope("bdlm_layer_%d"%(i)):
-                    # get fw / bw outputs for each layer
-                    input_fw = outputs[-1][0]
-                    input_bw = outputs[-1][1]
+                    # get fw / bw _outputs for each layer
+                    input_fw = _outputs[-1][0]
+                    input_bw = _outputs[-1][1]
 
 
                 with tf.device(fw_dev):
                     output_fw, _ = tf.nn.dynamic_rnn(
                             cell=fw_cells[i],
                             inputs=input_fw,
-                            sequence_length=lens+tf.constant(2*hparams.filter_size + 1, dtype=tf.int32),
+                            sequence_length=lens+tf.constant(hparams.filter_size + 1, dtype=tf.int32),
                             dtype=tf.float32)
                     # add weight reg
                     unwrapped_fw_cells[i].add_loss(
@@ -127,25 +127,27 @@ class CBDLMModel(BaseModel):
                     output_bw, _ = tf.nn.dynamic_rnn(
                             cell=bw_cells[i],
                             inputs=input_bw,
-                            sequence_length=lens+tf.constant(2*hparams.filter_size + 1, dtype=tf.int32),
+                            sequence_length=lens+tf.constant(hparams.filter_size + 1, dtype=tf.int32),
                             dtype=tf.float32)
                     unwrapped_bw_cells[i].add_loss(
                             tf.multiply(hparams.l2_lambda, tf.nn.l2_loss(unwrapped_bw_cells[i].weights[0]), name="bw_%d_l2w"%(i))
                             )
 
-                outputs.append([output_fw, output_bw])
+                _outputs.append([output_fw, output_bw])
 
-            for i in range(len(outputs)):
-                outputs[i][1] =tf.reverse_sequence(outputs[i][1],
-                                                    seq_lengths=lens+tf.constant(2*hparams.filter_size+1, dtype=tf.int32),
+            outputs = []
+            for i in range(len(_outputs)):
+                # reverse the backward outputs; trim the extra steps from fw/bw and concat
+                _outputs[i][1] =tf.reverse_sequence(_outputs[i][1],
+                                                    seq_lengths=lens+tf.constant(hparams.filter_size+1, dtype=tf.int32),
                                                     seq_axis=1)
+                outputs.append(tf.concat([_outputs[i][0][:, :-(hparams.filter_size+1), :],
+                                          _outputs[i][1][:, (hparams.filter_size+1):, :]],
+                                         axis=-1))
 
 
         with tf.variable_scope("lm_out", dtype=tf.float32):
-            # concat last outputs and feed to softmax
-            output_fw = outputs[-1][0][:, :-(hparams.filter_size+1), :]
-            output_bw = outputs[-1][1][:, (hparams.filter_size+1):, :]
-            rnn_out = tf.concat([output_fw, output_bw], axis=-1)
+            rnn_out = outputs[-1]
 
 
             rnn_out = tf.layers.dropout(inputs=rnn_out,
@@ -227,4 +229,3 @@ class CBDLMModel(BaseModel):
             update_ops = [loss_update, seq_loss_update, reg_loss_update, acc_update, cm_update, mean_act_fw_update, mean_act_bw_update]
 
         return outputs, logits, loss, metrics, update_ops
-
