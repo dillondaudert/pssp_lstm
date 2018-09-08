@@ -144,6 +144,8 @@ class CBDLMModel(BaseModel):
                 outputs.append(tf.concat([_outputs[i][0][:, :-(hparams.filter_size+1), :],
                                           _outputs[i][1][:, (hparams.filter_size+1):, :]],
                                          axis=-1))
+            output_fw = outputs[-1][0]
+            output_bw = outputs[-1][1]
 
 
         with tf.variable_scope("lm_out", dtype=tf.float32):
