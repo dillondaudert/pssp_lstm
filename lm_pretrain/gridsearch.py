@@ -7,10 +7,10 @@ from .pretrain import pretrain
 
 def main():
     grid_params = {
-            "num_layers": [3,   1,   2,   3,  ],
-            "num_units":  [128, 128, 128, 128,],
-            "dropout":    [0.,  0.3, 0.3, 0.3,],
-            "num_epochs": [350, 300, 350, 350,],
+            "num_layers": [2,   2,   3,   3],
+            "num_units":  [128, 256, 128, 256],
+            "dropout":    [.5,  .5,  .5,  .5],
+            "num_epochs": [350, 350, 350, 350],
             }
 
     def logdir_suffix(ind):
