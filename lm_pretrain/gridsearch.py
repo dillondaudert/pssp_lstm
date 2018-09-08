@@ -39,7 +39,7 @@ def main():
             max_gradient_norm=2.,
             max_patience=8,
             eval_step=50,
-            model="bdrnn",
+            model="van_bdrnn",
             Model=VanillaBDRNNModel,
             train_file="/home/dillon/data/cpdb/sub1/cpdb_train.tfrecords",
             valid_file="/home/dillon/data/cpdb/sub1/cpdb_valid.tfrecords",
