@@ -119,7 +119,7 @@ def create_dataset(hparams, mode):
                        tf.TensorShape([None, hparams.num_phyche_features]), # phyche
                        tf.TensorShape([None, 23]), # seq_out
                        )
-    elif hparams.model == "bdrnn":
+    elif hparams.model == "bdrnn" or hparams.model == "van_bdrnn":
         parser = cpdb_parser
         map_fn = _bdrnn_map_func(hparams, sos_id, eos_id, prot_size, struct_size)
         padded_shapes=(tf.TensorShape([]), # id
