@@ -44,12 +44,10 @@ def main():
     ev_parser = subparsers.add_parser("evaluate", help="Evaluate a trained model")
 
     ev_parser.add_argument("ckpt", type=str, help="a tf model checkpoint file.")
-    ev_parser.add_argument("data", type=str,
-                           help="the data to evaluate against")
-
     ev_parser.add_argument("-m", "--model", type=str, choices=HPARAM_CHOICES["model"],
                            required=True,
                            help=HPARAM_DESCS["model"][1])
+    ev_parser.add_argument("-f", "--files", nargs="+", help="a list of files to evaluate.")
     ev_parser.add_argument("-o", "--outfile", type=str,
                            help="the name of the output file. If provided, a csv of the results will be saved.")
 
@@ -109,14 +107,13 @@ def main():
         model_hparams = args.model
         HPARAMS = hparams[model_hparams]
         HPARAMS.ckpt = str(Path(args.ckpt).absolute())
-        HPARAMS.valid_file = str(Path(args.data))
 
         if args.outfile is not None:
             outfile = str(Path(args.outfile))
         else:
-            outfile = args.outfile
+            outfile = None
 
-        evaluate(HPARAMS, outfile)
+        evaluate(HPARAMS, args.files, outfile)
 
 
     else:
