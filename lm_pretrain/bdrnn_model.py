@@ -48,11 +48,18 @@ class BDRNNModel(BaseModel):
             gamma = tf.get_variable("gamma", [1], initializer=tf.constant_initializer(1.0))
             s_task = tf.get_variable("s_task", [len(outputs)], initializer=tf.constant_initializer(1.0))
             s_weights = tf.nn.softmax(s_task, name="s_weights")
+            for i in range(len(outputs)):
+                tf.summary.scalar("s_weight:h_%d"%i, s_weights[i], collections=["eval"])
             weighted_sum = sum(s_weights[i]*outputs[i] for i in range(len(outputs)))
             elmo = gamma * weighted_sum
 
+        elmo_proj = tf.layers.dense(inputs=elmo,
+                                    units=hparams.num_units,
+                                    kernel_initializer=tf.glorot_uniform_initializer(),
+                                    use_bias=False)
 
-        x = tf.concat([elmo, pssm], axis=-1, name="bdrnn_input")
+
+        x = tf.concat([elmo_proj, pssm], axis=-1, name="bdrnn_input")
 
         drop_x = tf.layers.dropout(inputs=x,
                                    rate=hparams.dropout,
