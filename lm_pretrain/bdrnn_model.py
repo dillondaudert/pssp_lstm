@@ -3,6 +3,7 @@ A Bidirectional RNN Model class.
 """
 
 import tensorflow as tf
+import collections
 from .base_model import BaseModel
 from .cnn_bdlm_model import CBDLMModel
 from .model_helper import _create_rnn_cell
@@ -15,9 +16,12 @@ class BDRNNModel(BaseModel):
         self.bdlm_saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="bdlm|cnn_embed|lm_out"))
 
     def named_eval(self, sess):
-        fetches = {"inputs": self.inputs,
+        InputTuple = collections.namedtuple("InputTuple", ["id", "len", "seq_in", "phyche", "seq", "pssm", "ss"])
+        OutputTuple = collections.namedtuple("OutputTuple", ["h_0", "h_1", "h_2"])
+
+        fetches = {"inputs": InputTuple(*self.inputs),
                    "logits": self.logits,
-                   "outputs": self.outputs}
+                   "outputs": OutputTuple(*self.outputs)}
     return sess.run(fetches)
 
     @staticmethod
