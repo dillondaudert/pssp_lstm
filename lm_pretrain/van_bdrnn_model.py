@@ -3,6 +3,7 @@ A simple bidirectional RNN Model class.
 """
 
 import tensorflow as tf
+import collections
 from .base_model import BaseModel
 from .model_helper import _create_rnn_cell
 from .metrics import streaming_confusion_matrix, cm_summary
@@ -13,7 +14,8 @@ class VanillaBDRNNModel(BaseModel):
         super(VanillaBDRNNModel, self).__init__(hparams, iterator, mode, scope=scope)
 
     def named_eval(self, sess):
-        fetches = {"inputs": self.inputs,
+        InputTuple = collections.namedtuple("InputTuple", ["id", "len", "seq_in", "phyche", "seq", "pssm", "ss"])
+        fetches = {"inputs": InputTuple(*self.inputs),
                    "logits": self.logits}
         return sess.run(fetches)
 
