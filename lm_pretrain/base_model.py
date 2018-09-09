@@ -31,7 +31,7 @@ class BaseModel(object):
             self.train_loss = res[1]
 
         elif self.mode == tf.contrib.learn.ModeKeys.EVAL:
-            self.eval_probs = tf.nn.softmax(res[0])
+            self.logits = res[0]
             self.eval_loss = res[1]
             self.accuracy = res[2][0]
             self.confusion = res[2][1]
@@ -123,7 +123,7 @@ class BaseModel(object):
         """Evaluate the model."""
         assert self.mode == tf.contrib.learn.ModeKeys.EVAL
         fetches = [self.inputs,
-                   self.eval_probs,
+                   self.logits,
                    self.eval_loss,
                    self.accuracy,
                    self.confusion,
