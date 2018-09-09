@@ -17,11 +17,16 @@ HPARAM_DESCS = {
     "num_layers": (int, "the number of layers in the rnn of the bdrnn"),
     "num_lm_units": (int, "the number of units in the recurrent layers of the language model"),
     "num_lm_layers": (int, "the number of layers in the rnn of the language model"),
+    "num_filters": (int, "the number of convolution filters to use in the cnn bdlm"),
+    "filter_size": (int, "the size of the convolution filters"),
+    "l2_lambda": (float, "the strength of the l2 weight regularization to use"),
+    "l2_alpha": (float, "the strength of the l2 activity regularization to use"),
+    "l2_beta": (float, "the strength of the l2 activity decay regularization to use"),
     "lm_residual": (bool, "whether or not there should be residual connections between layers of the language model"),
     "cell_type": (str, "the type of rnn cell use"),
     "dropout": (float, "the amount of dropout to use for the dense layers of the model"),
-    "recurrent_dropout": (float, "the amount of dropout to use for the hidden activations of the recurrent layers"),
-    "variational_dropout": (bool, "whether or not the dropout should be variational for the recurrent layers"),
+    "recurrent_state_dropout": (float, "the amount of dropout to use for the hidden activations of the recurrent layers"),
+    "recurrent_input_dropout": (float, "the dropout for the inputs to the recurrent layers"),
     "embed_units": (int, "(BDRNN ONLY) TODO: consolidate with in_embed_units)"),
     "out_units": (int, "(BDRNN ONLY) TODO: consolidate with out_embed_units"),
     "in_embed_units": (int, "the dimensionality of the input embedding"),
@@ -30,10 +35,10 @@ HPARAM_DESCS = {
     "num_epochs": (int, "the number of epochs for training"),
     "max_gradient_norm": (float, "the maximum value for the gradient update norm, above which it is truncated"),
     "learning_rate": (float, "the learning rate for training"),
-    "num_keep_ckpts": (int, "the number of recent model checkpoints to keep at a time"),
+    "max_patience": (int, "the number of non-decreasing eval steps to wait before learning rate is reduced"),
     "eval_step": (int, "the number of training steps to do between each validation pass"),
     "model": (str, "the kind of model to train"),
-    "Model": ("TODO: consolidate model/Model"),
+    "Model": (object, "TODO: consolidate model/Model"),
     "file_pattern": (str, "the pattern of filenames to match for creating a dataset from multiple files.\
                            this is mutually exclusive with [train|valid]_file."),
     "train_file": (str, "the name of the file to use for training. This can also be a pattern to match files."),
@@ -46,7 +51,7 @@ HPARAM_DESCS = {
 }
 
 HPARAM_CHOICES = {
-    "model": ["bdlm", "bdrnn", "van_bdrnn"],
+    "model": ["bdlm", "bdrnn", "van_bdrnn", "cnn_bdlm"],
     "cell_type": ["lstm", "gru"],
 }
 

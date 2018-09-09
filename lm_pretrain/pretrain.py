@@ -2,6 +2,7 @@
 # basic example of training a network end-to-end
 from time import process_time
 from pathlib import Path
+import os
 import tensorflow as tf
 import numpy as np
 from tensorflow.contrib.tensorboard.plugins import projector
@@ -50,17 +51,17 @@ def pretrain(hparams):
                                                train_tuple.graph,
                                                max_queue=25,
                                                flush_secs=30)
-        # NOTE: visualize embeddings
-        config = projector.ProjectorConfig()
-        embedding_config = config.embeddings.add()
-        embedding_config.tensor_name = eval_tuple.graph.get_tensor_by_name("bdlm/in_embed/kernel:0").name
-        embedding_config.metadata_path = "/home/dillon/github/pssp_lstm/lm_pretrain/aa_metadata.tsv"
-        projector.visualize_embeddings(summary_writer, config)
 
     train_tuple.session.run([initializer])
 
-    if "bdlm_ckpt" in vars(hparams):
-        train_tuple.model.bdlm_saver.restore(train_tuple.session, hparams.bdlm_ckpt)
+    if "bdrnn_ckpt" in vars(hparams):
+        train_tuple.model.saver.restore(train_tuple.session, hparams.bdrnn_ckpt)
+    elif "bdlm_ckpt" in vars(hparams):
+        if hparams.model == "bdrnn":
+            # the bdlm is a subgraph of the bdrnn
+            train_tuple.model.bdlm_saver.restore(train_tuple.session, hparams.bdlm_ckpt)
+        else:
+            train_tuple.model.saver.restore(train_tuple.session, hparams.bdlm_ckpt)
 
     start_time = process_time()
     # initialize the training dataset
@@ -71,11 +72,11 @@ def pretrain(hparams):
     profile_next_step = False
     eval_step = hparams.eval_step
     patience = 0
-    max_patience = hparams.num_keep_ckpts-1
+    max_patience = hparams.max_patience
     best_eval_loss = np.Inf
     best_step = -1
     # Train until the dataset throws an error (at the end of num_epochs)
-    while patience < max_patience:
+    while True:
         step_time = []
         try:
             curr_time = process_time()
@@ -91,12 +92,12 @@ def pretrain(hparams):
             # write train summaries
             if global_step == 1 and hparams.logging:
                 summary_writer.add_summary(summary, global_step)
-            if global_step % 15 == 0:
+            if global_step % 20 == 0:
                 if hparams.logging:
                     summary_writer.add_summary(summary, global_step)
                 print("Step: %d, Training Loss: %4.4f, Avg Sec/Step: %2.2f" % (global_step, train_loss, np.mean(step_time)))
 
-            if global_step % eval_step == 0:
+            if global_step % eval_step == 1:
                 step_time = []
                 profile_next_step = True
                 # Do one evaluation
@@ -108,8 +109,6 @@ def pretrain(hparams):
                 while True:
                     try:
                         inp_tuple, eval_probs, eval_loss, eval_acc, _, eval_summary, _ = eval_tuple.model.eval(eval_tuple.session)
-                        #print(np.argmax(inp_tuple[2][0,:,:], axis=-1))
-                        #print(np.argmax(eval_probs[0,:,:], axis=-1))
                     except tf.errors.OutOfRangeError:
                         print("Step: %d, Eval Loss: %4.4f, Eval Accuracy: %1.4f" % (global_step,
                                                                               eval_loss,
@@ -118,13 +117,22 @@ def pretrain(hparams):
                             patience = 0
                             best_eval_loss = eval_loss
                             best_step = global_step
+                            eval_tuple.model.saver.save(eval_tuple.session,
+                                                        ckptsdir+"/best_model.ckpt",
+                                                        global_step=best_step)
                         else:
                             patience += 1
-                            print("Patience: %d" % patience)
+                            if patience > max_patience:
+                                patience = 0
+                                lr = train_tuple.model.learning_rate / 2.
+                                print("Halving learning rate: %g" % lr)
+                                train_tuple.model.update_learning_rate(lr)
 
                         if hparams.logging:
                             summary_writer.add_summary(eval_summary, global_step)
+
                         break
+
 
         except tf.errors.OutOfRangeError:
             print("- End of Trainig -")

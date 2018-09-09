@@ -3,6 +3,7 @@ A simple bidirectional RNN Model class.
 """
 
 import tensorflow as tf
+import collections
 from .base_model import BaseModel
 from .model_helper import _create_rnn_cell
 from .metrics import streaming_confusion_matrix, cm_summary
@@ -11,6 +12,12 @@ class VanillaBDRNNModel(BaseModel):
 
     def __init__(self, hparams, iterator, mode, scope=None):
         super(VanillaBDRNNModel, self).__init__(hparams, iterator, mode, scope=scope)
+
+    def named_eval(self, sess):
+        InputTuple = collections.namedtuple("InputTuple", ["id", "len", "seq_in", "phyche", "seq", "pssm", "ss"])
+        fetches = {"inputs": InputTuple(*self.inputs),
+                   "logits": self.logits}
+        return sess.run(fetches)
 
     @staticmethod
     def _build_graph(hparams, inputs, mode, scope=None):
@@ -29,20 +36,16 @@ class VanillaBDRNNModel(BaseModel):
         seq_in = seq_in[:, 1:-1, :]
         phyche = phyche[:, 1:-1, :]
 
+
         in_embed = tf.layers.Dense(units=hparams.embed_units,
-                                   kernel_initializer=tf.glorot_uniform_initializer(),
                                    use_bias=False,
-                                   name="bdlm/in_embed")(seq_in)
+                                   kernel_initializer=tf.glorot_uniform_initializer())(seq_in)
 
-        x = tf.concat([in_embed, phyche, pssm], axis=-1, name="bdrnn_input")
-
-        drop_x = tf.layers.dropout(inputs=x,
+        rnn_x = tf.layers.dropout(inputs=tf.concat([in_embed, phyche, pssm],
+                                                    axis=-1,
+                                                    name="rnn_x"),
                                    rate=hparams.dropout,
                                    training=mode==tf.contrib.learn.ModeKeys.TRAIN)
-
-        #if hparams.freeze_bdlm:
-        #    print("Stopping gradients to bdlm.")
-        #    x = tf.stop_gradient(x)
 
         with tf.variable_scope(scope or "bdrnn", dtype=tf.float32) as bdrnn_scope:
             # create bdrnn
@@ -51,7 +54,8 @@ class VanillaBDRNNModel(BaseModel):
                                         num_layers=hparams.num_layers,
                                         mode=mode,
                                         residual=hparams.residual,
-                                        recurrent_dropout=hparams.recurrent_dropout,
+                                        recurrent_state_dropout=hparams.recurrent_state_dropout,
+                                        recurrent_input_dropout=hparams.recurrent_input_dropout,
                                         as_list=True,
                                         )
 
@@ -60,7 +64,8 @@ class VanillaBDRNNModel(BaseModel):
                                         num_layers=hparams.num_layers,
                                         mode=mode,
                                         residual=hparams.residual,
-                                        recurrent_dropout=hparams.recurrent_dropout,
+                                        recurrent_state_dropout=hparams.recurrent_state_dropout,
+                                        recurrent_input_dropout=hparams.recurrent_input_dropout,
                                         as_list=True,
                                         )
 
@@ -68,7 +73,7 @@ class VanillaBDRNNModel(BaseModel):
             combined_outputs, output_state_fw, output_state_bw = \
                     tf.contrib.rnn.stack_bidirectional_dynamic_rnn(cells_fw=fw_cells,
                                                                    cells_bw=bw_cells,
-                                                                   inputs=drop_x,
+                                                                   inputs=rnn_x,
                                                                    sequence_length=lens,
                                                                    dtype=tf.float32,
                                                                    scope=bdrnn_scope)

@@ -3,71 +3,186 @@ import unittest
 import os
 from pathlib import Path
 import tensorflow as tf
+from tensorflow.python.ops.lookup_ops import index_table_from_tensor
 import numpy as np
-from .dataset import _from_files
+from .dataset import _from_files, _lm_map_func, _bdrnn_map_func
 from .parsers import cpdb_parser, cUR50_parser
 
-class TestDatasetEager(unittest.TestCase):
-    # do tests that can be done with eager execution
+tf.logging.set_verbosity(0)
+
+class TestMapFuncs(unittest.TestCase):
+    """
+    Test the dataset map functions.
+    """
 
     @classmethod
     def setUpClass(cls):
+        cls.graph = tf.Graph()
+        cls.sess = tf.Session(graph=cls.graph)
         os.environ["CUDA_VISIBLE_DEVICES"] = ""
-        tf.enable_eager_execution()
-        cls.datadir = Path(Path.home(), "data", "test_data")
+        cls.alpha = ["A", "B", "C", "D"]
+        with cls.graph.as_default():
+            lookup = index_table_from_tensor(tf.constant(cls.alpha))
+            cls.sess.run([tf.tables_initializer()])
+            cls.bdlm_hparams = tf.contrib.training.HParams(
+                model="bdlm",
+                prot_lookup_table=lookup,
+                struct_lookup_table=lookup,
+                num_phyche_features=1,
+                )
+            cls.cnn_bdlm_hparams = tf.contrib.training.HParams(
+                model="cnn_bdlm",
+                prot_lookup_table=lookup,
+                struct_lookup_table=lookup,
+                num_phyche_features=1,
+                filter_size=3,
+                )
+            cls.table_size = tf.cast(lookup.size(), tf.int32)
+            cls.sos_id = tf.cast(lookup.lookup(tf.constant("C")), tf.int32)
+            cls.eos_id = tf.cast(lookup.lookup(tf.constant("D")), tf.int32)
 
-        cls.hparams = tf.contrib.training.HParams(
-            file_pattern=str(Path(cls.datadir, "ur50_*.tfrecords")),
-            file_shuffle_seed=12345,
-            num_train_files=1,
-            num_valid_files=1,
-            batch_size=1,
-            num_phyche_features=7,
-            )
-        cls.tr_mode = tf.contrib.learn.ModeKeys.TRAIN
-        cls.ev_mode = tf.contrib.learn.ModeKeys.EVAL
+            x1 = (tf.constant(0),
+                  tf.constant(3),
+                  tf.constant("AAB"),
+                  .25*tf.ones((3, 1), dtype=tf.float32),
+                  .5*tf.ones((3, 1), dtype=tf.float32)
+                 )
+            x2 = (tf.constant(1),
+                  tf.constant(6),
+                  tf.constant("BBABAB"),
+                  .25*tf.ones((6, 1), dtype=tf.float32),
+                  .5*tf.ones((6, 1), dtype=tf.float32),
+                 )
+            cls.xs = [x1, x2]
 
-    def test_from_files_train(self):
-        train_dataset1 = _from_files(self.hparams, self.tr_mode, cUR50_parser)
-        train_dataset2 = _from_files(self.hparams, self.tr_mode, cUR50_parser)
 
-        iter1 = train_dataset1.make_one_shot_iterator()
-        iter2 = train_dataset2.make_one_shot_iterator()
+    def test_bdlm_mapfn(self):
+        y1 = (0,
+              3,
+              np.array([[0., 0., 1., 0.], # sos (C)
+                        [1., 0., 0., 0.], # A
+                        [1., 0., 0., 0.], # A
+                        [0., 1., 0., 0.], # B
+                        [0., 0., 0., 1.]]),# eos (D)
+              np.array([[0.],
+                        [.25],
+                        [.25],
+                        [.25],
+                        [0.]]),
+              np.array([[1., 0., 0., 0.], # A
+                        [1., 0., 0., 0.], # A
+                        [0., 1., 0., 0.]]),# B
+              )
+        y2 = (1,
+              6,
+              np.array([[0., 0., 1., 0.], # sos (C)
+                        [0., 1., 0., 0.], # B
+                        [0., 1., 0., 0.], # B
+                        [1., 0., 0., 0.], # A
+                        [0., 1., 0., 0.], # B
+                        [1., 0., 0., 0.], # A
+                        [0., 1., 0., 0.], # B
+                        [0., 0., 0., 1.]]),# eos (D)
+              np.array([[0.],
+                        [.25],
+                        [.25],
+                        [.25],
+                        [.25],
+                        [.25],
+                        [.25],
+                        [0.]]),
+              np.array([[0., 1., 0., 0.], # B
+                        [0., 1., 0., 0.], # B
+                        [1., 0., 0., 0.], # A
+                        [0., 1., 0., 0.], # B
+                        [1., 0., 0., 0.], # A
+                        [0., 1., 0., 0.]]),# B
+              )
+        ys = [y1, y2]
 
-        for (a, b) in zip(iter1, iter2):
-            self.assertEqual(str(a[0].numpy()), str(b[0].numpy()))
+        with self.graph.as_default():
+            lm_map_fn = _lm_map_func(self.bdlm_hparams, self.sos_id, self.eos_id, self.table_size)
 
-    def test_from_files_valid(self):
-        # train_dataset reads 1
-        train_dataset = _from_files(self.hparams, self.tr_mode, cUR50_parser)
-        train_iter = train_dataset.make_one_shot_iterator()
-        # valid_dataset skips 1 and reads 1 (from self.hparams)
-        valid_dataset = _from_files(self.hparams, self.ev_mode, cUR50_parser)
-        valid_iter = valid_dataset.make_one_shot_iterator()
-        # train_dataset2 reads 2
-        hparams = tf.contrib.training.HParams(
-            file_pattern=str(Path(self.datadir, "ur50_*.tfrecords")),
-            file_shuffle_seed=12345,
-            num_train_files=2,
-            num_valid_files=1,
-            batch_size=1,
-            num_phyche_features=7,
-            )
-        train_dataset2 = _from_files(hparams, self.tr_mode, cUR50_parser)
-        train_iter2 = train_dataset2.make_one_shot_iterator()
+            for i, x in enumerate(self.xs):
+                id, len, seq_in, phyche, seq_out = self.sess.run(lm_map_fn(x[0], x[1], x[2], x[3]))
+                self.assertEqual(ys[i][0], id)
+                self.assertEqual(ys[i][1], len)
+                self.assertTrue(np.array_equal(ys[i][2], seq_in))
+                self.assertTrue(np.allclose(ys[i][3], phyche))
+                self.assertTrue(np.array_equal(ys[i][4], seq_out))
 
-        # NOTE: so the IDs in valid_ds should be a subset of the IDs from train_ds
-        #       and the intersection should be equal to the set of valid_ds IDs.
-        train_ids = set((str(x[0].numpy()) for x in train_iter))
-        valid_ids = set((str(x[0].numpy()) for x in valid_iter))
-        train2_ids = set((str(x[0].numpy()) for x in train_iter2))
+    def test_cnn_bdlm_mapfn(self):
+        y1 = (0,
+              3,
+              np.array([[0., 0., 0., 0.],
+                        [0., 0., 0., 0.],
+                        [0., 0., 1., 0.], # sos (C)
+                        [1., 0., 0., 0.], # A
+                        [1., 0., 0., 0.], # A
+                        [0., 1., 0., 0.], # B
+                        [0., 0., 0., 1.],# eos (D)
+                        [0., 0., 0., 0.],
+                        [0., 0., 0., 0.]]),
+              np.array([[0.],
+                        [0.],
+                        [0.],
+                        [.25],
+                        [.25],
+                        [.25],
+                        [0.],
+                        [0.],
+                        [0.]]),
+              np.array([[1., 0., 0., 0.], # A
+                        [1., 0., 0., 0.], # A
+                        [0., 1., 0., 0.]]),# B
+              )
+        y2 = (1,
+              6,
+              np.array([[0., 0., 0., 0.],
+                        [0., 0., 0., 0.],
+                        [0., 0., 1., 0.], # sos (C)
+                        [0., 1., 0., 0.], # B
+                        [0., 1., 0., 0.], # B
+                        [1., 0., 0., 0.], # A
+                        [0., 1., 0., 0.], # B
+                        [1., 0., 0., 0.], # A
+                        [0., 1., 0., 0.], # B
+                        [0., 0., 0., 1.],# eos (D)
+                        [0., 0., 0., 0.],
+                        [0., 0., 0., 0.]]),
+              np.array([[0.],
+                        [0.],
+                        [0.],
+                        [.25],
+                        [.25],
+                        [.25],
+                        [.25],
+                        [.25],
+                        [.25],
+                        [0.],
+                        [0.],
+                        [0.]]),
+              np.array([[0., 1., 0., 0.], # B
+                        [0., 1., 0., 0.], # B
+                        [1., 0., 0., 0.], # A
+                        [0., 1., 0., 0.], # B
+                        [1., 0., 0., 0.], # A
+                        [0., 1., 0., 0.]]),# B
+              )
+        ys = [y1, y2]
 
-        # this checks that the valid dataset skips num_train_files
-        self.assertTrue(valid_ids <= train2_ids)
+        with self.graph.as_default():
+            lm_map_fn = _lm_map_func(self.cnn_bdlm_hparams, self.sos_id, self.eos_id, self.table_size)
 
-        # this checks that the train dataset reads the same file for both
-        self.assertTrue(train_ids <= train2_ids)
-        self.assertTrue((train2_ids - valid_ids) == train_ids)
+            for i, x in enumerate(self.xs):
+                id, len, seq_in, phyche, seq_out = self.sess.run(lm_map_fn(x[0], x[1], x[2], x[3]))
+                self.assertEqual(ys[i][0], id)
+                self.assertEqual(ys[i][1], len)
+                self.assertTrue(np.array_equal(ys[i][2], seq_in))
+                self.assertTrue(np.allclose(ys[i][3], phyche))
+                self.assertTrue(np.array_equal(ys[i][4], seq_out))
+
+
 
 
 if __name__ == "__main__":

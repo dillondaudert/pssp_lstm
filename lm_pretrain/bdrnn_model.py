@@ -3,8 +3,9 @@ A Bidirectional RNN Model class.
 """
 
 import tensorflow as tf
+import collections
 from .base_model import BaseModel
-from .bdlm_model import BDLMModel
+from .cnn_bdlm_model import CBDLMModel
 from .model_helper import _create_rnn_cell
 from .metrics import streaming_confusion_matrix, cm_summary
 
@@ -12,6 +13,16 @@ class BDRNNModel(BaseModel):
 
     def __init__(self, hparams, iterator, mode, scope=None):
         super(BDRNNModel, self).__init__(hparams, iterator, mode, scope=scope)
+        self.bdlm_saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="bdlm|cnn_embed|lm_out"))
+
+    def named_eval(self, sess):
+        InputTuple = collections.namedtuple("InputTuple", ["id", "len", "seq_in", "phyche", "seq", "pssm", "ss"])
+        OutputTuple = collections.namedtuple("OutputTuple", ["h_0", "h_1", "h_2"])
+
+        fetches = {"inputs": InputTuple(*self.inputs),
+                   "logits": self.logits,
+                   "outputs": OutputTuple(*self.outputs)}
+        return sess.run(fetches)
 
     @staticmethod
     def _build_graph(hparams, inputs, mode, scope=None):
@@ -30,10 +41,18 @@ class BDRNNModel(BaseModel):
         # if we aren't fine-tuning the bdlm, set lm_mode to eval
         lm_mode = mode if not hparams.freeze_bdlm else tf.contrib.learn.ModeKeys.EVAL
 
-        (lm_x, lm_out_embed), lm_logits, lm_loss, lm_metrics, lm_update_ops = \
-                BDLMModel._build_lm_graph(hparams.lm_hparams, (ids, lens, seq_in, phyche, seq_out), lm_mode)
+        outputs, lm_logits, lm_loss, lm_metrics, lm_update_ops = \
+                CBDLMModel._build_lm_graph(hparams.lm_hparams, (ids, lens, seq_in, phyche, seq_out), lm_mode)
 
-        x = tf.concat([lm_out_embed, pssm], axis=-1, name="bdrnn_input")
+        with tf.variable_scope("elmo", dtype=tf.float32, reuse=tf.AUTO_REUSE) as elmo_scope:
+            gamma = tf.get_variable("gamma", [1], initializer=tf.constant_initializer(1.0))
+            s_task = tf.get_variable("s_task", [len(outputs)], initializer=tf.constant_initializer(1.0))
+            s_weights = tf.nn.softmax(s_task, name="s_weights")
+            weighted_sum = sum(s_weights[i]*outputs[i] for i in range(len(outputs)))
+            elmo = gamma * weighted_sum
+
+
+        x = tf.concat([elmo, pssm], axis=-1, name="bdrnn_input")
 
         drop_x = tf.layers.dropout(inputs=x,
                                    rate=hparams.dropout,
@@ -50,7 +69,8 @@ class BDRNNModel(BaseModel):
                                         num_layers=hparams.num_layers,
                                         mode=mode,
                                         residual=hparams.residual,
-                                        recurrent_dropout=hparams.recurrent_dropout,
+                                        recurrent_state_dropout=hparams.recurrent_state_dropout,
+                                        recurrent_input_dropout=hparams.recurrent_input_dropout,
                                         as_list=True,
                                         )
 
@@ -59,7 +79,8 @@ class BDRNNModel(BaseModel):
                                         num_layers=hparams.num_layers,
                                         mode=mode,
                                         residual=hparams.residual,
-                                        recurrent_dropout=hparams.recurrent_dropout,
+                                        recurrent_state_dropout=hparams.recurrent_state_dropout,
+                                        recurrent_input_dropout=hparams.recurrent_input_dropout,
                                         as_list=True,
                                         )
 
@@ -124,5 +145,5 @@ class BDRNNModel(BaseModel):
             metrics = [acc, cm]
             update_ops = [loss_update, acc_update, cm_update]
 
-        return logits, loss, metrics, update_ops
+        return logits, loss, metrics, update_ops, outputs
 

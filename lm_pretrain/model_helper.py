@@ -1,10 +1,12 @@
 import tensorflow as tf
+from tensorflow.python import debug as tf_debug
 from tensorflow.contrib.rnn import LSTMBlockCell, GRUBlockCell, MultiRNNCell
 from custom_rnn.stlstm import STLSTMCell
 from collections import namedtuple
 from .dataset import create_dataset
 
 ModelTuple = namedtuple('ModelTuple', ['graph', 'iterator', 'model', 'session'])
+DEBUG=False
 
 def create_model(hparams, mode):
     """
@@ -16,7 +18,11 @@ def create_model(hparams, mode):
     """
 
     graph = tf.Graph()
-    sess = tf.Session(graph=graph)
+    sess = tf.Session(graph=graph,
+                      config=tf.ConfigProto(allow_soft_placement=True))
+    if mode == tf.contrib.learn.ModeKeys.TRAIN and DEBUG:
+        sess = tf_debug.TensorBoardDebugWrapperSession(sess, "localhost:6064")
+
 
     with graph.as_default():
         with tf.name_scope("input_pipe"):
@@ -64,7 +70,8 @@ def _create_rnn_cell(cell_type,
                      mode,
                      residual=False,
                      as_list=False,
-                     recurrent_dropout=0.0,
+                     recurrent_state_dropout=0.0,
+                     recurrent_input_dropout=0.0,
                      trainable=True):
     """Create a list of RNN cells.
 
@@ -92,13 +99,14 @@ def _create_rnn_cell(cell_type,
         if residual and i > 0:
             single_cell = tf.nn.rnn_cell.ResidualWrapper(
                     cell=single_cell)
-        if recurrent_dropout > 0.:
+        if recurrent_state_dropout > 0. or recurrent_input_dropout > 0.:
             single_cell = tf.contrib.rnn.DropoutWrapper(
                     cell=single_cell,
-                    state_keep_prob=1.0-recurrent_dropout if mode == tf.contrib.learn.ModeKeys.TRAIN else 1.0,
-                    #variational_recurrent=True,
-                    #input_size=tf.TensorShape([1]),
-                    #dtype=tf.float32,
+                    state_keep_prob=1.0-recurrent_state_dropout if mode == tf.contrib.learn.ModeKeys.TRAIN else 1.0,
+                    input_keep_prob=1.0-recurrent_input_dropout if mode == tf.contrib.learn.ModeKeys.TRAIN else 1.0,
+                    variational_recurrent=True,
+                    input_size=tf.TensorShape([1]),
+                    dtype=tf.float32,
                     )
         cell_list.append(single_cell)
 

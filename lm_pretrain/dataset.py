@@ -16,12 +16,20 @@ def _lm_map_func(hparams, sos_id, eos_id, prot_size):
         seq = tf.cast(hparams.prot_lookup_table.lookup(seq), tf.int32)
         # prepend/append SOS/EOS tokens
         seq_in = tf.concat(([sos_id], seq, [eos_id]), 0)
-        # prepend zeros to phyche
-        phyche_pad = tf.zeros(shape=(1, hparams.num_phyche_features))
+        if "filter_size" in vars(hparams):
+            k = hparams.filter_size
+        else:
+            k = 1
+        # pad zeros to phyche
+        phyche_pad = tf.zeros(shape=(k, hparams.num_phyche_features))
         phyche = tf.concat([phyche_pad, phyche, phyche_pad], 0)
         # map to one-hots
         seq_in = tf.nn.embedding_lookup(prot_eye, seq_in)
         seq_out = tf.nn.embedding_lookup(prot_eye, seq)
+        # pad zeros to match filters
+        if k-1 > 0:
+            pad = tf.zeros(shape=(k-1, prot_size))
+            seq_in = tf.concat([pad, seq_in, pad], 0)
         return id, seq_len, seq_in, phyche, seq_out
     return lm_map_func
 
@@ -89,20 +97,21 @@ def create_dataset(hparams, mode):
     eos_id = tf.cast(hparams.prot_lookup_table.lookup(tf.constant("EOS")), tf.int32)
 
 
-    batch_size = hparams.batch_size
     # set shuffle and epochs for train/eval
     if mode == tf.contrib.learn.ModeKeys.TRAIN:
         shuffle = True
         num_epochs = hparams.num_epochs
+        batch_size = hparams.batch_size
     elif mode == tf.contrib.learn.ModeKeys.EVAL:
         shuffle = False
         num_epochs = 1
+        batch_size = 1
     else:
         print("INFER mode not supported.")
         quit()
 
     # get parsers and map functions for each kind of dataset
-    if hparams.model == "bdlm":
+    if hparams.model == "bdlm" or hparams.model == "cnn_bdlm":
         parser = cUR50_parser
         map_fn = _lm_map_func(hparams, sos_id, eos_id, prot_size)
         padded_shapes=(tf.TensorShape([]), # id
@@ -111,7 +120,7 @@ def create_dataset(hparams, mode):
                        tf.TensorShape([None, hparams.num_phyche_features]), # phyche
                        tf.TensorShape([None, 23]), # seq_out
                        )
-    elif hparams.model == "bdrnn":
+    elif hparams.model == "bdrnn" or hparams.model == "van_bdrnn":
         parser = cpdb_parser
         map_fn = _bdrnn_map_func(hparams, sos_id, eos_id, prot_size, struct_size)
         padded_shapes=(tf.TensorShape([]), # id
@@ -123,7 +132,6 @@ def create_dataset(hparams, mode):
                        tf.TensorShape([None, hparams.num_labels]), # ss
                        )
 
-
     # load file(s) and parse records
     if "file_pattern" in vars(hparams):
         dataset = _from_files(hparams, mode, parser)
@@ -132,6 +140,11 @@ def create_dataset(hparams, mode):
                                         else hparams.valid_file
         dataset = tf.data.TFRecordDataset(input_file).\
                       map(lambda x: parser(x, hparams), num_parallel_calls=4)
+
+    # filter sequences by length
+    dataset = dataset.filter(lambda id, len, *z: tf.logical_and(tf.greater(len, tf.constant(20, dtype=tf.int32)),
+                                                                tf.less(len, tf.constant(1040, dtype=tf.int32))))
+
 
     # shuffle and repeat
     if shuffle:
@@ -143,9 +156,14 @@ def create_dataset(hparams, mode):
     # record transformations
     dataset = dataset.map(map_fn, num_parallel_calls=4)
 
+    if "filter_size" in vars(hparams):
+        k = hparams.filter_size
+    else:
+        k = 1
+
     # bucketing
     dataset = dataset.apply(tf.contrib.data.bucket_by_sequence_length(
-        lambda id, seq_len, seq_in, phyche, seq_out, *z: seq_len+tf.constant(2, dtype=tf.int32),
+        lambda id, seq_len, seq_in, phyche, seq_out, *z: seq_len+tf.constant(2*k, dtype=tf.int32),
         [50, 150, 250, 350, # buckets
          450, 550, 650, 850],
         [batch_size, batch_size, batch_size, # all buckets have the
