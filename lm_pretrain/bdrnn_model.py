@@ -43,6 +43,8 @@ class BDRNNModel(BaseModel):
 
         outputs, lm_logits, lm_loss, lm_metrics, lm_update_ops = \
                 CBDLMModel._build_lm_graph(hparams.lm_hparams, (ids, lens, seq_in, phyche, seq_out), lm_mode, freeze_bdlm=hparams.freeze_bdlm)
+        # remove padding for bdlm
+        phyche = phyche[:, hparams.lm_hparams.filter_size:-hparams.lm_hparams.filter_size, :]
 
         with tf.variable_scope("elmo", dtype=tf.float32, reuse=tf.AUTO_REUSE) as elmo_scope:
             gamma = tf.get_variable("gamma", [1], initializer=tf.constant_initializer(1.0))
@@ -54,13 +56,49 @@ class BDRNNModel(BaseModel):
             weighted_sum = sum(s_weights[i]*outputs[i] for i in range(len(outputs)))
             elmo = gamma * weighted_sum
 
-        elmo_proj = tf.layers.dense(inputs=elmo,
-                                    units=hparams.num_units,
-                                    kernel_initializer=tf.glorot_uniform_initializer(),
-                                    use_bias=False)
+        if hparams.input_style == "ELMO_seq":
+            elmo_proj = tf.layers.dense(inputs=elmo,
+                                        units=hparams.num_units-25,
+                                        kernel_initializer=tf.glorot_uniform_initializer(),
+                                        use_bias=False,
+                                        name="elmo_proj")
+            seq_dense = tf.layers.dense(inputs=seq_out,
+                                        units=25,
+                                        kernel_initializer=tf.glorot_uniform_initializer(),
+                                        use_bias=False,
+                                        name="seq_dense")
+            x = tf.concat([elmo_proj, seq_dense, phyche, pssm], axis=-1)
+
+        elif hparams.input_style == "elmo_SEQ":
+            elmo_proj = tf.layers.dense(inputs=elmo,
+                                        units=25,
+                                        kernel_initializer=tf.glorot_uniform_initializer(),
+                                        use_bias=False,
+                                        name="elmo_proj")
+            seq_dense = tf.layers.dense(inputs=seq_out,
+                                        units=hparams.num_units-25,
+                                        kernel_initializer=tf.glorot_uniform_initializer(),
+                                        use_bias=False,
+                                        name="seq_dense")
+            x = tf.concat([elmo_proj, seq_dense, phyche, pssm], axis=-1)
+
+        elif hparams.input_style == "out_SEQ":
+            lm_out = tf.sigmoid(lm_logits, name="lm_out")
+            seq_dense = tf.layers.dense(inputs=seq_out,
+                                        units=hparams.num_units-hparams.lm_hparams.num_labels,
+                                        kernel_initializer=tf.glorot_uniform_initializer(),
+                                        use_bias=False,
+                                        name="seq_dense")
 
 
-        x = tf.concat([elmo_proj, pssm], axis=-1, name="bdrnn_input")
+            x = tf.concat([lm_out, seq_dense, phyche, pssm], axis=-1)
+
+        else:
+            elmo_proj = tf.layers.dense(inputs=elmo,
+                                        units=hparams.num_units,
+                                        kernel_initializer=tf.glorot_uniform_initializer(),
+                                        use_bias=False)
+            x = tf.concat([elmo_proj, pssm], axis=-1)
 
         drop_x = tf.layers.dropout(inputs=x,
                                    rate=hparams.dropout,
