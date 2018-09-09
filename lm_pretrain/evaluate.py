@@ -25,12 +25,17 @@ def evaluate(hparams, files, outfile=None):
         eval_tuple.session.run([eval_tuple.iterator.initializer, local_initializer])
         while True:
             try:
-                fetched = eval_tuple.model.eval(eval_tuple.session)
+                fetched = eval_tuple.model.named_eval(eval_tuple.session)
+
+                if "filter_size" in vars(hparams):
+                    k = hparams.filter_size
+                else:
+                    k = 1
 
                 rec = (f,
                        fetched["inputs"].id,
                        fetched["inputs"].seq,
-                       fetched["inputs"].phyche,
+                       fetched["inputs"].phyche[:, k:-k, :],
                        fetched["inputs"].pssm,
                        fetched["logits"],
                        fetched["inputs"].ss
@@ -50,8 +55,10 @@ def evaluate(hparams, files, outfile=None):
     df_cols = cols if len(cols) == len(recs[0]) else cols+hcols
 
     df = pd.DataFrame.from_records(data=recs, columns=df_cols)
+    print(df.iloc[-1])
 
-    print(df.iloc[0])
+    df = df.reindex(columns = cols+hcols)
+    print(df.iloc[-1])
 
     if outfile is not None:
-        df.to_csv(outfile, index=False)
+        df.to_pickle(outfile)
