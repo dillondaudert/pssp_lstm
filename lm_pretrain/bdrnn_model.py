@@ -22,7 +22,7 @@ class BDRNNModel(BaseModel):
         fetches = {"inputs": InputTuple(*self.inputs),
                    "logits": self.logits,
                    "outputs": OutputTuple(*self.outputs)}
-    return sess.run(fetches)
+        return sess.run(fetches)
 
     @staticmethod
     def _build_graph(hparams, inputs, mode, scope=None):
