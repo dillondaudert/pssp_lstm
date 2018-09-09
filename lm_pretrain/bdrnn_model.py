@@ -42,7 +42,7 @@ class BDRNNModel(BaseModel):
         lm_mode = mode if not hparams.freeze_bdlm else tf.contrib.learn.ModeKeys.EVAL
 
         outputs, lm_logits, lm_loss, lm_metrics, lm_update_ops = \
-                CBDLMModel._build_lm_graph(hparams.lm_hparams, (ids, lens, seq_in, phyche, seq_out), lm_mode)
+                CBDLMModel._build_lm_graph(hparams.lm_hparams, (ids, lens, seq_in, phyche, seq_out), lm_mode, freeze_bdlm=hparams.freeze_bdlm)
 
         with tf.variable_scope("elmo", dtype=tf.float32, reuse=tf.AUTO_REUSE) as elmo_scope:
             gamma = tf.get_variable("gamma", [1], initializer=tf.constant_initializer(1.0))
