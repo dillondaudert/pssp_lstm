@@ -97,15 +97,14 @@ def create_dataset(hparams, mode):
     eos_id = tf.cast(hparams.prot_lookup_table.lookup(tf.constant("EOS")), tf.int32)
 
 
+    batch_size = hparams.batch_size
     # set shuffle and epochs for train/eval
     if mode == tf.contrib.learn.ModeKeys.TRAIN:
         shuffle = True
         num_epochs = hparams.num_epochs
-        batch_size = hparams.batch_size
     elif mode == tf.contrib.learn.ModeKeys.EVAL:
         shuffle = False
         num_epochs = 1
-        batch_size = 1
     else:
         print("INFER mode not supported.")
         quit()
