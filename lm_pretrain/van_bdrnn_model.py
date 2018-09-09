@@ -12,6 +12,11 @@ class VanillaBDRNNModel(BaseModel):
     def __init__(self, hparams, iterator, mode, scope=None):
         super(VanillaBDRNNModel, self).__init__(hparams, iterator, mode, scope=scope)
 
+    def named_eval(self, sess):
+        fetches = {"inputs": self.inputs,
+                   "logits": self.logits}
+        return sess.run(fetches)
+
     @staticmethod
     def _build_graph(hparams, inputs, mode, scope=None):
         """Construct the train, evaluation graphs.
