@@ -14,6 +14,12 @@ class BDRNNModel(BaseModel):
         super(BDRNNModel, self).__init__(hparams, iterator, mode, scope=scope)
         self.bdlm_saver = tf.train.Saver(tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="bdlm|cnn_embed|lm_out"))
 
+    def named_eval(self, sess):
+        fetches = {"inputs": self.inputs,
+                   "logits": self.logits,
+                   "outputs": self.outputs}
+    return sess.run(fetches)
+
     @staticmethod
     def _build_graph(hparams, inputs, mode, scope=None):
         """Construct the train, evaluation graphs.
@@ -31,15 +37,8 @@ class BDRNNModel(BaseModel):
         # if we aren't fine-tuning the bdlm, set lm_mode to eval
         lm_mode = mode if not hparams.freeze_bdlm else tf.contrib.learn.ModeKeys.EVAL
 
-        _outputs, lm_logits, lm_loss, lm_metrics, lm_update_ops = \
+        outputs, lm_logits, lm_loss, lm_metrics, lm_update_ops = \
                 CBDLMModel._build_lm_graph(hparams.lm_hparams, (ids, lens, seq_in, phyche, seq_out), lm_mode)
-
-        outputs = []
-        # shift and concat the outputs of each layer to be the right size
-        for i, l in enumerate(_outputs):
-            output_fw = l[0][:, :-(hparams.lm_hparams.filter_size+1), :]
-            output_bw = l[1][:, (hparams.lm_hparams.filter_size+1):, :]
-            outputs.append(tf.concat([output_fw, output_bw], axis=-1))
 
         with tf.variable_scope("elmo", dtype=tf.float32, reuse=tf.AUTO_REUSE) as elmo_scope:
             gamma = tf.get_variable("gamma", [1], initializer=tf.constant_initializer(1.0))
@@ -142,5 +141,5 @@ class BDRNNModel(BaseModel):
             metrics = [acc, cm]
             update_ops = [loss_update, acc_update, cm_update]
 
-        return logits, loss, metrics, update_ops
+        return logits, loss, metrics, update_ops, outputs
 
