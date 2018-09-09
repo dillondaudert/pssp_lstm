@@ -33,13 +33,15 @@ class CBDLMModel(BaseModel):
 
         seq_dense = tf.layers.dense(inputs=seq_in,
                                     units=25,
-                                    use_bias=False)
+                                    use_bias=False,
+                                    trainable=not hparams.freeze_bdlm,
+                                    name="bdlm_seq_dense")
 
         x = tf.concat([seq_dense, phyche], axis=-1)
 
         _outputs = []
 
-        with tf.variable_scope(scope or "cnn_embed", dtype=tf.float32) as cnn_scope:
+        with tf.variable_scope(scope or "bdlm_cnn_embed", dtype=tf.float32) as cnn_scope:
             cnn_embed = tf.layers.Conv1D(filters=hparams.num_filters,
                                          kernel_size=hparams.filter_size,
                                          activation=tf.nn.relu,
@@ -58,7 +60,7 @@ class CBDLMModel(BaseModel):
             _outputs.append([z_0, z_0])
 
 
-        with tf.variable_scope(scope or "bdlm", dtype=tf.float32) as bdlm_scope:
+        with tf.variable_scope(scope or "bdlm_rnn", dtype=tf.float32) as bdlm_scope:
 
             _get_cell = lambda name: LSTMCell(name=name,
                                               num_units=hparams.num_lm_units,
@@ -148,7 +150,7 @@ class CBDLMModel(BaseModel):
             output_bw = outputs[-1][1]
 
 
-        with tf.variable_scope("lm_out", dtype=tf.float32):
+        with tf.variable_scope("bdlm_out", dtype=tf.float32):
             rnn_out = outputs[-1]
 
 
