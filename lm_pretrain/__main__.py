@@ -49,7 +49,7 @@ def main():
                            help=HPARAM_DESCS["model"][1])
     ev_parser.add_argument("-f", "--files", nargs="+", help="a list of files to evaluate.")
     ev_parser.add_argument("-o", "--outfile", type=str,
-                           help="the name of the output file. If provided, a csv of the results will be saved.")
+                           help="the name of the output pickle file where the results will be saved. optional")
 
     ev_parser.set_defaults(entry="evaluate")
 
