@@ -27,14 +27,14 @@ class CBDLMModel(BaseModel):
 
 
     @staticmethod
-    def _build_lm_graph(hparams, inputs, mode, scope=None):
+    def _build_lm_graph(hparams, inputs, mode, freeze_bdlm=False, scope=None):
 
         ids, lens, seq_in, phyche, seq_out = inputs
 
         seq_dense = tf.layers.dense(inputs=seq_in,
                                     units=25,
                                     use_bias=False,
-                                    trainable=not hparams.freeze_bdlm,
+                                    trainable=not freeze_bdlm,
                                     name="bdlm_seq_dense")
 
         x = tf.concat([seq_dense, phyche], axis=-1)
@@ -46,11 +46,11 @@ class CBDLMModel(BaseModel):
                                          kernel_size=hparams.filter_size,
                                          activation=tf.nn.relu,
                                          kernel_regularizer=lambda inp: hparams.l2_lambda*tf.nn.l2_loss(inp),
-                                         trainable=not hparams.freeze_bdlm)
+                                         trainable=not freeze_bdlm)
 
             embed_proj = tf.layers.Dense(units=hparams.num_units,
                                          kernel_regularizer=lambda inp: hparams.l2_lambda*tf.nn.l2_loss(inp),
-                                         trainable=not hparams.freeze_bdlm)
+                                         trainable=not freeze_bdlm)
 
             z_0 = tf.layers.dropout(inputs=cnn_embed(x),
                                     rate=hparams.dropout,
@@ -65,7 +65,7 @@ class CBDLMModel(BaseModel):
             _get_cell = lambda name: LSTMCell(name=name,
                                               num_units=hparams.num_lm_units,
                                               num_proj=hparams.num_units,
-                                              trainable=not hparams.freeze_bdlm)
+                                              trainable=not freeze_bdlm)
             _drop_wrap = lambda cell: tf.nn.rnn_cell.DropoutWrapper(
                     cell=cell,
                     state_keep_prob=1.0-hparams.recurrent_state_dropout if mode == tf.contrib.learn.ModeKeys.TRAIN else 1.0,
@@ -160,7 +160,7 @@ class CBDLMModel(BaseModel):
             logits = tf.layers.dense(inputs=rnn_out,
                                      units=hparams.num_labels,
                                      kernel_regularizer=lambda inp: hparams.l2_lambda*tf.nn.l2_loss(inp),
-                                     trainable=not hparams.freeze_bdlm)
+                                     trainable=not freeze_bdlm)
 
         # mask out entries longer than target sequence length
         mask = tf.sequence_mask(lens, dtype=tf.float32)
