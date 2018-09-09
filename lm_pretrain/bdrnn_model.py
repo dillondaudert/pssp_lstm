@@ -50,7 +50,7 @@ class BDRNNModel(BaseModel):
             s_weights = tf.nn.softmax(s_task, name="s_weights")
             for i in range(len(outputs)):
                 tf.summary.scalar("s_weight:h_%d"%i, s_weights[i], collections=["eval"])
-            tf.summary.scalar("gamma", gamma, collections=["eval"])
+            tf.summary.scalar("gamma", gamma[0], collections=["eval"])
             weighted_sum = sum(s_weights[i]*outputs[i] for i in range(len(outputs)))
             elmo = gamma * weighted_sum
 
