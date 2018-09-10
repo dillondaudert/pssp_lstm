@@ -214,8 +214,8 @@ class CBDLMModel(BaseModel):
                                                   labels=tgt_labels,
                                                   weights=mask)
             # final layer activations
-            mean_act_fw, mean_act_fw_update = add_seq_activation_histogram(output_fw, lens, "activations/fw_2")
-            mean_act_bw, mean_act_bw_update = add_seq_activation_histogram(output_bw, lens, "activations/bw_2")
+            mean_act_fw, mean_act_fw_update = add_seq_activation_histogram(output_fw, lens, "fw_2")
+            mean_act_bw, mean_act_bw_update = add_seq_activation_histogram(output_bw, lens, "bw_2")
 
             # confusion matrix
             targets_flat = tf.reshape(tgt_labels, [-1])
