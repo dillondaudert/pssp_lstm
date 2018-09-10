@@ -47,7 +47,7 @@ class BDRNNModel(BaseModel):
         phyche = phyche[:, hparams.lm_hparams.filter_size:-hparams.lm_hparams.filter_size, :]
 
         with tf.variable_scope("elmo", dtype=tf.float32, reuse=tf.AUTO_REUSE) as elmo_scope:
-            gamma = tf.get_variable("gamma", [1], initializer=tf.constant_initializer(1.0))
+            gamma = tf.get_variable("gamma", [1], initializer=tf.constant_initializer(0.1))
             s_task = tf.get_variable("s_task", [len(outputs)], initializer=tf.constant_initializer(1.0))
             s_weights = tf.nn.softmax(s_task, name="s_weights")
             for i in range(len(outputs)):
@@ -56,7 +56,10 @@ class BDRNNModel(BaseModel):
             weighted_sum = sum(s_weights[i]*outputs[i] for i in range(len(outputs)))
             elmo = gamma * weighted_sum
 
+        activation_updates = []
+
         if hparams.input_style == "ELMO_seq":
+            print("ELMO_seq")
             elmo_proj = tf.layers.dense(inputs=elmo,
                                         units=hparams.num_units-25,
                                         kernel_initializer=tf.glorot_uniform_initializer(),
@@ -67,9 +70,13 @@ class BDRNNModel(BaseModel):
                                         kernel_initializer=tf.glorot_uniform_initializer(),
                                         use_bias=False,
                                         name="seq_dense")
+            mean_elmo_act, mean_elmo_act_update = add_seq_activation_histogram(elmo_proj, lens, "elmo_proj")
+            mean_seq_act, mean_seq_act_update = add_seq_activation_histogram(seq_dense, lens, "seq_dense")
+            activation_updates += [mean_elmo_act_update, mean_seq_act_update]
             x = tf.concat([elmo_proj, seq_dense, phyche, pssm], axis=-1)
 
         elif hparams.input_style == "elmo_SEQ":
+            print("elmo_SEQ")
             elmo_proj = tf.layers.dense(inputs=elmo,
                                         units=25,
                                         kernel_initializer=tf.glorot_uniform_initializer(),
@@ -80,24 +87,33 @@ class BDRNNModel(BaseModel):
                                         kernel_initializer=tf.glorot_uniform_initializer(),
                                         use_bias=False,
                                         name="seq_dense")
+            mean_elmo_act, mean_elmo_act_update = add_seq_activation_histogram(elmo_proj, lens, "elmo_proj")
+            mean_seq_act, mean_seq_act_update = add_seq_activation_histogram(seq_dense, lens, "seq_dense")
+            activation_updates += [mean_elmo_act_update, mean_seq_act_update]
             x = tf.concat([elmo_proj, seq_dense, phyche, pssm], axis=-1)
 
         elif hparams.input_style == "out_SEQ":
+            print("out_SEQ")
             lm_out = tf.sigmoid(lm_logits, name="lm_out")
             seq_dense = tf.layers.dense(inputs=seq_out,
                                         units=hparams.num_units-hparams.lm_hparams.num_labels,
                                         kernel_initializer=tf.glorot_uniform_initializer(),
                                         use_bias=False,
                                         name="seq_dense")
+            mean_lm_act, mean_lm_act_update = add_seq_activation_histogram(lm_out, lens, "lm_out")
+            mean_seq_act, mean_seq_act_update = add_seq_activation_histogram(seq_dense, lens, "seq_dense")
+            activation_updates += [mean_lm_act_update, mean_seq_act_update]
 
 
             x = tf.concat([lm_out, seq_dense, phyche, pssm], axis=-1)
 
         else:
+            print("base")
             elmo_proj = tf.layers.dense(inputs=elmo,
                                         units=hparams.num_units,
                                         kernel_initializer=tf.glorot_uniform_initializer(),
                                         use_bias=False)
+            mean_elmo_act, mean_elmo_act_update = add_seq_activation_histogram(elmo_proj, lens, "elmo_proj")
             x = tf.concat([elmo_proj, pssm], axis=-1)
 
         drop_x = tf.layers.dropout(inputs=x,
