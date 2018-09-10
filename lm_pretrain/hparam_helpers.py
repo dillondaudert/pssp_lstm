@@ -5,6 +5,8 @@ Model hyperparameter descriptions and helpers.
 import argparse as ap
 
 HPARAM_DESCS = {
+    "model": (str, "the kind of model to train"),
+    "Model": (object, "TODO: consolidate model/Model"),
     "datadir": (str, "the directory where the data files are located"),
     "logdir": (str, "the directory where the logs and model checkpoints should be saved"),
     "logging": (bool, "whether or not performance will be logged during training (disabled by default)"),
@@ -12,6 +14,7 @@ HPARAM_DESCS = {
     "bdrnn_ckpt": (str, "the checkpoint file from which to load a saved BDRNN model"),
     "num_phyche_features": (int, "the number of physicochemical features in the dataset"),
     "num_pssm_features": (int, "the number of features in the position-specific similarity matrices"),
+    "input_style": (str, "bdrnn model only: which features to use for input"),
     "num_labels": (int, "the number of target labels in this dataset"),
     "num_units": (int, "the number of units in the recurrent layers of the bdrnn"),
     "num_layers": (int, "the number of layers in the rnn of the bdrnn"),
@@ -37,8 +40,6 @@ HPARAM_DESCS = {
     "learning_rate": (float, "the learning rate for training"),
     "max_patience": (int, "the number of non-decreasing eval steps to wait before learning rate is reduced"),
     "eval_step": (int, "the number of training steps to do between each validation pass"),
-    "model": (str, "the kind of model to train"),
-    "Model": (object, "TODO: consolidate model/Model"),
     "file_pattern": (str, "the pattern of filenames to match for creating a dataset from multiple files.\
                            this is mutually exclusive with [train|valid]_file."),
     "train_file": (str, "the name of the file to use for training. This can also be a pattern to match files."),
@@ -53,6 +54,7 @@ HPARAM_DESCS = {
 HPARAM_CHOICES = {
     "model": ["bdlm", "bdrnn", "van_bdrnn", "cnn_bdlm"],
     "cell_type": ["lstm", "gru"],
+    "input_style": ["ELMO_seq", "elmo_SEQ", "out_SEQ", "base"],
 }
 
 def hparams_to_str(hparams):
