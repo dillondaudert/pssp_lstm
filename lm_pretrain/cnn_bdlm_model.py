@@ -214,8 +214,8 @@ class CBDLMModel(BaseModel):
                                                   labels=tgt_labels,
                                                   weights=mask)
             # final layer activations
-            mean_act_fw, mean_act_fw_update = add_seq_activation_histogram(output_fw, lens, "fw_2")
-            mean_act_bw, mean_act_bw_update = add_seq_activation_histogram(output_bw, lens, "bw_2")
+            #mean_act_fw, mean_act_fw_update = add_seq_activation_histogram(output_fw, lens, "fw_2")
+            #mean_act_bw, mean_act_bw_update = add_seq_activation_histogram(output_bw, lens, "bw_2")
 
             # confusion matrix
             targets_flat = tf.reshape(tgt_labels, [-1])
@@ -227,6 +227,6 @@ class CBDLMModel(BaseModel):
                                                        weights=mask_flat)
             tf.add_to_collection("eval", cm_summary(cm, hparams.num_labels))
             metrics = [acc, cm]
-            update_ops = [loss_update, seq_loss_update, reg_loss_update, acc_update, cm_update, mean_act_fw_update, mean_act_bw_update]
+            update_ops = [loss_update, seq_loss_update, reg_loss_update, acc_update, cm_update]#, mean_act_fw_update, mean_act_bw_update]
 
         return outputs, logits, loss, metrics, update_ops
