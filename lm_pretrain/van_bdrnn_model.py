@@ -5,7 +5,7 @@ A simple bidirectional RNN Model class.
 import tensorflow as tf
 import collections
 from .base_model import BaseModel
-from .model_helper import _create_rnn_cell
+from .model_helper import _create_rnn_cell, add_seq_activation_histogram
 from .metrics import streaming_confusion_matrix, cm_summary
 
 class VanillaBDRNNModel(BaseModel):
@@ -41,11 +41,13 @@ class VanillaBDRNNModel(BaseModel):
                                    use_bias=False,
                                    kernel_initializer=tf.glorot_uniform_initializer())(seq_in)
 
-        rnn_x = tf.layers.dropout(inputs=tf.concat([in_embed, phyche, pssm],
-                                                    axis=-1,
-                                                    name="rnn_x"),
-                                   rate=hparams.dropout,
-                                   training=mode==tf.contrib.learn.ModeKeys.TRAIN)
+        x_ = tf.concat([in_embed, phyche, pssm], axis=-1)
+        ln_x = tf.contrib.layers.layer_norm(inputs=x_, begin_norm_axis=-1, begin_params_axis=-1)
+        mean_x_act, mean_x_act_update = add_seq_activation_histogram(ln_x, lens, "x")
+
+        rnn_x = tf.layers.dropout(inputs=ln_x,
+                                  rate=hparams.dropout,
+                                  training=mode==tf.contrib.learn.ModeKeys.TRAIN)
 
         with tf.variable_scope(scope or "bdrnn", dtype=tf.float32) as bdrnn_scope:
             # create bdrnn
@@ -124,7 +126,7 @@ class VanillaBDRNNModel(BaseModel):
                                                        prefix="ss_")
             tf.add_to_collection("eval", cm_summary(cm, hparams.num_labels, prefix="ss_"))
             metrics = [acc, cm]
-            update_ops = [loss_update, acc_update, cm_update]
+            update_ops = [loss_update, acc_update, cm_update, mean_x_act_update]
 
         return logits, loss, metrics, update_ops
 
