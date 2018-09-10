@@ -6,7 +6,7 @@ import tensorflow as tf
 import collections
 from .base_model import BaseModel
 from .cnn_bdlm_model import CBDLMModel
-from .model_helper import _create_rnn_cell
+from .model_helper import _create_rnn_cell, add_seq_activation_histogram
 from .metrics import streaming_confusion_matrix, cm_summary
 
 class BDRNNModel(BaseModel):
@@ -47,7 +47,7 @@ class BDRNNModel(BaseModel):
         phyche = phyche[:, hparams.lm_hparams.filter_size:-hparams.lm_hparams.filter_size, :]
 
         with tf.variable_scope("elmo", dtype=tf.float32, reuse=tf.AUTO_REUSE) as elmo_scope:
-            gamma = tf.get_variable("gamma", [1], initializer=tf.constant_initializer(0.1))
+            gamma = tf.get_variable("gamma", [1], initializer=tf.constant_initializer(1.0))
             s_task = tf.get_variable("s_task", [len(outputs)], initializer=tf.constant_initializer(1.0))
             s_weights = tf.nn.softmax(s_task, name="s_weights")
             for i in range(len(outputs)):
@@ -55,6 +55,8 @@ class BDRNNModel(BaseModel):
             tf.summary.scalar("gamma", gamma[0], collections=["eval"])
             weighted_sum = sum(s_weights[i]*outputs[i] for i in range(len(outputs)))
             elmo = gamma * weighted_sum
+            gamma_loss = tf.constant(.005)*tf.squared_difference(gamma[0], tf.constant([1.0]))
+            tf.summary.scalar("gamma_loss", gamma_loss, collections=["eval"])
 
         activation_updates = []
 
@@ -175,7 +177,8 @@ class BDRNNModel(BaseModel):
                                                               name="crossent")
 
         seq_loss = tf.reduce_sum(crossent*mask, axis=1)/tf.cast(lens, tf.float32)
-        loss = tf.reduce_sum(seq_loss)/tf.cast(hparams.batch_size, tf.float32)
+        loss = tf.reduce_sum(seq_loss)/tf.cast(hparams.batch_size, tf.float32) + \
+               gamma_loss
 
         if "loss_weights" in vars(hparams):
             print("LM loss weight: %f, PSSP loss weight: %f\n" % (hparams.loss_weights[0], hparams.loss_weights[1]))
@@ -205,7 +208,7 @@ class BDRNNModel(BaseModel):
                                                        prefix="ss_")
             tf.add_to_collection("eval", cm_summary(cm, hparams.num_labels, prefix="ss_"))
             metrics = [acc, cm]
-            update_ops = [loss_update, acc_update, cm_update]
+            update_ops = [loss_update, acc_update, cm_update] + activation_updates
 
         return logits, loss, metrics, update_ops, outputs
 
