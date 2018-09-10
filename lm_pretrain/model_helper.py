@@ -114,3 +114,20 @@ def _create_rnn_cell(cell_type,
         return MultiRNNCell(cell_list)
 
     return cell_list
+
+def add_seq_activation_histogram(seq_act, lens, name, collections=["eval"]):
+    """
+    Add a histogram summary of the mean activations of a sequence of outputs.
+    Args:
+        seq_act: the [batch x len x features] sequence to average and summarize
+        lens: the lengths of each sequence in the batch, used to mask time steps
+        name: the name of the histogram summary
+        collections: a list of collections to add the summary to
+    Returns:
+        mean_act, mean_act_update: a tuple of tensors containing the statistic tensor and the update tensor
+    """
+    mask = tf.sequence_mask(lens, dtype=tf.float32)
+    mean_seq_act = lambda act: tf.reduce_sum(
+            tf.reduce_sum(act*tf.expand_dims(mask, axis=-1), axis=1)/tf.expand_dims(tf.cast(lens, tf.float32), 1), axis=0)
+    mean_act, mean_act_update = tf.metrics.mean_tensor(values=mean_seq_act(seq_act))
+    tf.summary.histogram(name, mean_act, collections=collections)

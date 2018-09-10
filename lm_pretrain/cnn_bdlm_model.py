@@ -6,6 +6,7 @@ import tensorflow as tf
 from tensorflow.nn.rnn_cell import LSTMCell
 from .base_model import BaseModel
 from .metrics import streaming_confusion_matrix, cm_summary
+from .model_helper import add_seq_activation_histogram
 
 class CBDLMModel(BaseModel):
 
@@ -213,12 +214,8 @@ class CBDLMModel(BaseModel):
                                                   labels=tgt_labels,
                                                   weights=mask)
             # final layer activations
-            mean_seq_act = lambda act: tf.reduce_sum(
-                    tf.reduce_sum(act*tf.expand_dims(mask, axis=-1), axis=1)/tf.expand_dims(tf.cast(lens, tf.float32), 1), axis=0)
-            mean_act_fw, mean_act_fw_update = tf.metrics.mean_tensor(values=mean_seq_act(output_fw))
-            mean_act_bw, mean_act_bw_update = tf.metrics.mean_tensor(values=mean_seq_act(output_bw))
-            tf.summary.histogram("activations/fw_2_activations", mean_act_fw, collections=["eval"])
-            tf.summary.histogram("activations/bw_2_activations", mean_act_bw, collections=["eval"])
+            mean_act_fw, mean_act_fw_update = add_seq_activation_histogram(output_fw, lens, "activations/fw_2")
+            mean_act_bw, mean_act_bw_update = add_seq_activation_histogram(output_bw, lens, "activations/bw_2")
 
             # confusion matrix
             targets_flat = tf.reshape(tgt_labels, [-1])
