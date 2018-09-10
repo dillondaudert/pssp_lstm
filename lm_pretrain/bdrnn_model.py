@@ -55,8 +55,7 @@ class BDRNNModel(BaseModel):
             tf.summary.scalar("gamma", gamma[0], collections=["eval"])
             weighted_sum = sum(s_weights[i]*outputs[i] for i in range(len(outputs)))
             elmo = gamma * weighted_sum
-            gamma_loss = tf.constant(.005)*tf.squared_difference(gamma[0], tf.constant([1.0]))
-            tf.summary.scalar("gamma_loss", gamma_loss, collections=["eval"])
+            gamma_loss = tf.constant(.005)*tf.squared_difference(gamma[0], tf.constant(1.0))
 
         activation_updates = []
 
@@ -190,6 +189,7 @@ class BDRNNModel(BaseModel):
             # mean eval loss
             loss, loss_update = tf.metrics.mean(values=loss,
                                                 name="ss_loss")
+            tf.summary.scalar("eval_gamma_loss", gamma_loss, collections=["eval"])
 
             predictions = tf.argmax(input=logits, axis=-1)
             tgt_labels = tf.argmax(input=ss, axis=-1)
