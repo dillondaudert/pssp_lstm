@@ -131,3 +131,5 @@ def add_seq_activation_histogram(seq_act, lens, name, collections=["eval"]):
             tf.reduce_sum(act*tf.expand_dims(mask, axis=-1), axis=1)/tf.expand_dims(tf.cast(lens, tf.float32), 1), axis=0)
     mean_act, mean_act_update = tf.metrics.mean_tensor(values=mean_seq_act(seq_act))
     tf.summary.histogram("activations/"+name, mean_act, collections=collections)
+
+    return mean_act, mean_act_update
