@@ -9,7 +9,7 @@ from .model_helper import create_model
 def evaluate(hparams, files, outfile=None):
     """Evaluate a trained model"""
 
-    cols = ["file", "id", "seq", "phyche", "pssm", "logits", "ss"]
+    cols = ["file", "len", "id", "seq", "phyche", "pssm", "logits", "ss"]
     hcols = ["h_0", "h_1", "h_2", "lm_logits"]
     recs = []
 
@@ -33,23 +33,24 @@ def evaluate(hparams, files, outfile=None):
                     k = 1
 
                 rec = (f,
-                       fetched["inputs"].id,
-                       fetched["inputs"].seq,
-                       fetched["inputs"].phyche[:, k:-k, :],
-                       fetched["inputs"].pssm,
-                       fetched["logits"],
-                       fetched["inputs"].ss
+                       fetched["inputs"].id[0],
+                       fetched["inputs"].len[0],
+                       fetched["inputs"].seq[0],
+                       fetched["inputs"].phyche[0, k:-k, :],
+                       fetched["inputs"].pssm[0],
+                       fetched["logits"][0],
+                       fetched["inputs"].ss[0]
                        )
                 if "outputs" in fetched.keys():
-                    rec = rec + (fetched["outputs"].h_0,
-                                 fetched["outputs"].h_1,
-                                 fetched["outputs"].h_2,
-                                 fetched["outputs"].lm_logits,
+                    rec = rec + (fetched["outputs"].h_0[0],
+                                 fetched["outputs"].h_1[0],
+                                 fetched["outputs"].h_2[0],
+                                 fetched["outputs"].lm_logits[0],
                                  )
 
-                for t in rec[1:]:
+                for t in rec[3:]:
                     # assert that all input/output tensors are of same sequence length
-                    assert t.shape[1] == fetched["inputs"].len[0]
+                    assert t.shape[0] == fetched["inputs"].len[0]
 
                 recs.append(rec)
 
