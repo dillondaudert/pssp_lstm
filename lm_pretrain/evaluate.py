@@ -10,7 +10,7 @@ def evaluate(hparams, files, outfile=None):
     """Evaluate a trained model"""
 
     cols = ["file", "id", "seq", "phyche", "pssm", "logits", "ss"]
-    hcols = ["h_0", "h_1", "h_2"]
+    hcols = ["h_0", "h_1", "h_2", "lm_logits"]
     recs = []
 
     for f in files:
@@ -44,6 +44,7 @@ def evaluate(hparams, files, outfile=None):
                     rec = rec + (fetched["outputs"].h_0,
                                  fetched["outputs"].h_1,
                                  fetched["outputs"].h_2,
+                                 fetched["outputs"].lm_logits,
                                  )
 
                 recs.append(rec)
