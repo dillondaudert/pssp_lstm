@@ -106,6 +106,7 @@ def main():
     elif args.entry == "evaluate":
         model_hparams = args.model
         HPARAMS = hparams[model_hparams]
+        HPARAMS.batch_size = 1
         HPARAMS.ckpt = str(Path(args.ckpt).absolute())
 
         if args.outfile is not None:
