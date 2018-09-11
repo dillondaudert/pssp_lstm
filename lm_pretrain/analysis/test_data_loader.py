@@ -17,8 +17,8 @@ class TestDataLoader(ut.TestCase):
         cls.in_cols = ["file", "id", "len", "seq", "phyche", "pssm", "logits",
                        "ss", "h_0", "h_1", "h_2", "lm_logits"]
         cls.out_cols = ["dataset", "id", "len", "position", "amino",
-                        "phyche", "pssm", "h_0", "h_1", "h_2",
-                        "lm_logits", "logits", "y_true"]
+                        "phyche", "pssm", "logits", "ss", "h_0", "h_1", "h_2",
+                        "lm_logits"]
 
         seq = np.array([[0., 0., 1.],
                         [1., 0., 0.]])
@@ -52,7 +52,7 @@ class TestDataLoader(ut.TestCase):
                    h_2,
                    lm_logits,
                   )
-        ex_1_out = [tuple([ex_1_in[0], ex_1_in[1], ex_1_in[2], j] + [ex_1_in[i][j, :] for i in range(3, len(ex_1_in))]) for j in range(2)]
+        ex_1_out = [tuple(["train", ex_1_in[1], ex_1_in[2], j] + [ex_1_in[i][j, :] for i in range(3, len(ex_1_in))]) for j in range(2)]
 
         in_df = pd.DataFrame.from_records(data=[ex_1_in], columns=cls.in_cols)
         # write to file
@@ -63,7 +63,9 @@ class TestDataLoader(ut.TestCase):
 
     def test_load_data(self):
         df = load_data(self.test_file_1)
-        self.assertTrue(df.equals(self.out_df))
+        print(df.sort_index(axis=1))
+        print(self.out_df.sort_index(axis=1))
+        self.assertTrue(df.sort_index(axis=1).equals(self.out_df.sort_index(axis=1)))
 
 
     @classmethod

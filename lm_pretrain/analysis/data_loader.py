@@ -1,6 +1,37 @@
 # load prediction data into dataframe
 
 import pandas as pd
+import numpy as np
+import re
+
+seq_cols = ["seq", "phyche", "pssm", "logits", "ss"]
+seq_hcols = ["h_0", "h_1", "h_2", "lm_logits"]
+title_cols = ["dataset", "id", "len", "position"]
+out_seq_cols = ["amino", "phyche", "pssm", "logits", "ss"]
 
 def load_data(path: str) -> pd.DataFrame:
-    return pd.DataFrame()
+    raw_data = pd.read_pickle(path)
+
+    def get_dataset(datafile):
+        for name in ["train", "valid", "test"]:
+            if re.search(name, datafile) is not None:
+                return "train"
+        raise Exception()
+
+    recs = []
+
+    for i in range(raw_data.shape[0]):
+        if np.isscalar(raw_data["h_0"].iloc[0]):
+            itercols = seq_cols
+            out_cols = out_seq_cols
+        else:
+            itercols = seq_cols+seq_hcols
+            out_cols = out_seq_cols+seq_hcols
+
+        sample_recs = [tuple([get_dataset(raw_data.iloc[i].file), raw_data.iloc[i].id, raw_data.iloc[i].len, j] + \
+                             [raw_data.iloc[i][col][j, :] for col in itercols]) for j in range(raw_data.iloc[i].len)]
+        recs = recs + sample_recs
+
+    out_df = pd.DataFrame.from_records(data=recs, columns=title_cols+out_cols)
+
+    return out_df
