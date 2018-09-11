@@ -17,7 +17,7 @@ class BDRNNModel(BaseModel):
 
     def named_eval(self, sess):
         InputTuple = collections.namedtuple("InputTuple", ["id", "len", "seq_in", "phyche", "seq", "pssm", "ss"])
-        OutputTuple = collections.namedtuple("OutputTuple", ["h_0", "h_1", "h_2"])
+        OutputTuple = collections.namedtuple("OutputTuple", ["h_0", "h_1", "h_2", "lm_logits"])
 
         fetches = {"inputs": InputTuple(*self.inputs),
                    "logits": self.logits,
@@ -210,5 +210,6 @@ class BDRNNModel(BaseModel):
             metrics = [acc, cm]
             update_ops = [loss_update, acc_update, cm_update] + activation_updates
 
+        outputs.append(lm_logits)
         return logits, loss, metrics, update_ops, outputs
 
