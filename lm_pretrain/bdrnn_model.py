@@ -77,12 +77,12 @@ class BDRNNModel(BaseModel):
         elif hparams.input_style == "elmo_SEQ":
             print("elmo_SEQ")
             elmo_proj = tf.layers.dense(inputs=elmo,
-                                        units=25,
+                                        units=hparams.lm_hparams.num_labels,
                                         kernel_initializer=tf.glorot_uniform_initializer(),
                                         use_bias=False,
                                         name="elmo_proj")
             seq_dense = tf.layers.dense(inputs=seq_out,
-                                        units=hparams.num_units-25,
+                                        units=hparams.num_units-hparams.lm_hparams.num_labels,
                                         kernel_initializer=tf.glorot_uniform_initializer(),
                                         use_bias=False,
                                         name="seq_dense")
