@@ -9,7 +9,7 @@ from .model_helper import create_model
 def evaluate(hparams, files, outfile=None):
     """Evaluate a trained model"""
 
-    cols = ["file", "len", "id", "seq", "phyche", "pssm", "logits", "ss"]
+    cols = ["file", "id", "len", "seq", "phyche", "pssm", "logits", "ss"]
     hcols = ["h_0", "h_1", "h_2", "lm_logits"]
     recs = []
 
@@ -61,10 +61,23 @@ def evaluate(hparams, files, outfile=None):
     df_cols = cols if len(cols) == len(recs[0]) else cols+hcols
 
     df = pd.DataFrame.from_records(data=recs, columns=df_cols)
-    print(df.iloc[-1])
-
     df = df.reindex(columns = cols+hcols)
     print(df.iloc[-1])
+
+    # do some data verification
+    for i in range(df.shape[0]):
+        row = df.iloc[i]
+        assert row.seq.shape[1] == 23 # num AA one-hots
+        assert row.phyche.shape[1] == hparams.num_phyche_features
+        assert row.pssm.shape[1] == hparams.num_pssm_features
+        assert row.logits.shape[1] == hparams.num_labels
+        assert row.ss.shape[1] == hparams.num_labels
+        if not pd.isnull(row.h_0):
+            assert row.h_0.shape[1] == 2*hparams.lm_hparams.num_units
+            assert row.h_1.shape[1] == 2*hparams.lm_hparams.num_units
+            assert row.h_2.shape[1] == 2*hparams.lm_hparams.num_units
+            assert row.lm_logits.shape[1] == hparams.lm_hparams.num_labels
+
 
     if outfile is not None:
         df.to_pickle(outfile)
