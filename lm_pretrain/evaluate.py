@@ -47,6 +47,10 @@ def evaluate(hparams, files, outfile=None):
                                  fetched["outputs"].lm_logits,
                                  )
 
+                for t in rec[1:]:
+                    # assert that all input/output tensors are of same sequence length
+                    assert t.shape[1] == fetched["inputs"].len[0]
+
                 recs.append(rec)
 
                 # summary_writer.add_summary(summary, global_step)
