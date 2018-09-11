@@ -1,7 +1,7 @@
 # do a grid search
 
 import tensorflow as tf
-from .bdrnn_model import VanillaBDRNNModel
+from .van_bdrnn_model import VanillaBDRNNModel
 from .hparam_helpers import hparams_to_str
 from .hparams import hparams
 from .pretrain import pretrain
@@ -31,7 +31,6 @@ def main():
             embed_units=grid_params["num_units"][ind],
             num_units=grid_params["num_units"][ind],
             num_layers=grid_params["num_layers"][ind],
-            filter_size=7,
             residual=False,
             cell_type="lstm",
             out_units=grid_params["num_units"][ind],
@@ -57,7 +56,6 @@ def main():
     for i in range(len(grid_params["num_layers"])):
         exp_hparams = get_hparams(i)
         print(hparams_to_str(exp_hparams))
-        print(hparams_to_str(exp_hparams.lm_hparams))
         pretrain(exp_hparams)
 
 if __name__ == "__main__":
