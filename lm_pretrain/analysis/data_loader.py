@@ -32,7 +32,7 @@ def load_data(path: str) -> pd.DataFrame:
 
     for i in range(raw_data.shape[0]):
 
-        sample_recs = [tuple([get_dataset(raw_data.iloc[i].file), raw_data.iloc[i].id, raw_data.iloc[i].len, j] + \
+        sample_recs = [tuple([get_dataset(path), raw_data.iloc[i].id, raw_data.iloc[i].len, j] + \
                              [raw_data.iloc[i][col][j, :] for col in itercols]) for j in range(raw_data.iloc[i].len)]
         recs = recs + sample_recs
 
