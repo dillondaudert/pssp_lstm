@@ -19,14 +19,14 @@ def load_data(path: str) -> pd.DataFrame:
         raise Exception()
 
     recs = []
+    if np.isscalar(raw_data["h_0"].iloc[0]):
+        itercols = seq_cols
+        out_cols = out_seq_cols
+    else:
+        itercols = seq_cols+seq_hcols
+        out_cols = out_seq_cols+seq_hcols
 
     for i in range(raw_data.shape[0]):
-        if np.isscalar(raw_data["h_0"].iloc[0]):
-            itercols = seq_cols
-            out_cols = out_seq_cols
-        else:
-            itercols = seq_cols+seq_hcols
-            out_cols = out_seq_cols+seq_hcols
 
         sample_recs = [tuple([get_dataset(raw_data.iloc[i].file), raw_data.iloc[i].id, raw_data.iloc[i].len, j] + \
                              [raw_data.iloc[i][col][j, :] for col in itercols]) for j in range(raw_data.iloc[i].len)]
