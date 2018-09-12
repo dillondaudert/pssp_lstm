@@ -114,6 +114,11 @@ def main():
         HPARAMS = hparams[model_hparams]
         HPARAMS.batch_size = 1
         HPARAMS.ckpt = str(Path(args.ckpt).absolute())
+        if args.model == "bdrnn":
+            HPARAMS.freeze_bdlm = True
+            LM_HPARAMS = hparams["cnn_bdlm"]
+            LM_HPARAMS.freeze_bdlm = True
+            HPARAMS.lm_hparams = LM_HPARAMS
 
         if args.outfile is not None:
             outfile = str(Path(args.outfile))
