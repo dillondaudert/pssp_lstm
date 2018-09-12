@@ -55,8 +55,8 @@ def main():
     ev_parser.set_defaults(entry="evaluate")
 
     an_parser = subparsers.add_parser("analyze", help="Analyze results")
-    an_parser.add_argument("datafile", type=str)
-    an_parser.add_argument("outfile", type=str)
+    an_parser.add_argument("-f", "--datafiles", type=str, nargs="+", required=True)
+    an_parser.add_argument("-o", "--outfile", type=str, required=True)
     an_parser.set_defaults(entry="analyze")
 
     args = parser.parse_args()
@@ -123,7 +123,7 @@ def main():
         evaluate(HPARAMS, args.files, outfile)
 
     elif args.entry == "analyze":
-        analyze(args.datafile, args.outfile)
+        analyze(args.datafiles, args.outfile)
 
     else:
         print("Unrecognized command, exiting.")
