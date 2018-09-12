@@ -15,7 +15,11 @@ def load_data(path: str) -> pd.DataFrame:
     def get_dataset(datafile):
         for name in ["train", "valid", "test"]:
             if re.search(name, datafile) is not None:
-                return "train"
+                for sub in ["sub1", "sub2", "sub3", "sub4", "sub5"]:
+                    if re.search(sub, datafile) is not None:
+                        return sub+"_"+name
+
+
         raise Exception()
 
     recs = []
