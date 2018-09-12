@@ -30,6 +30,10 @@ def _class_accuracy(y_true: pd.Series,
     y_pred_cls = y_pred[y_true == cls]
     return (y_true_cls == y_pred_cls).mean()
 
+def _class_count(y_true: pd.Series,
+                 cls: int) -> int:
+    return sum(y_true == cls)
+
 def accuracy(y_true: pd.Series,
              y_pred: pd.Series,
              classes: Optional[List[str]] = None) -> pd.DataFrame:
@@ -48,7 +52,10 @@ def accuracy(y_true: pd.Series,
     acc = [_class_accuracy(y_true, y_pred, i) for i in range(num_classes)]
     acc = acc + [(y_true == y_pred).mean()]
 
-    return pd.DataFrame(data={"accuracy": acc},
+    class_counts = [_class_count(y_true, i) for i in range(num_classes)]
+    class_counts = class_counts + [y_true.shape[0]]
+
+    return pd.DataFrame(data={"accuracy": acc, "count": class_counts},
                         index=index)
 
 def _bin_accuracy(y_true: pd.Series,
@@ -60,10 +67,17 @@ def _bin_accuracy(y_true: pd.Series,
     y_pred_rng = y_pred[(lens >= bin_start) & (lens < bin_end)]
     return (y_true_rng == y_pred_rng).mean()
 
+def _bin_count(lens: pd.Series,
+               bin_start: int,
+               bin_end: int) -> int:
+    return sum((lens >= bin_start) & (lens < bin_end))
+
+
 def accuracy_vs_len(y_true: pd.Series,
                     y_pred: pd.Series,
                     lens: pd.Series,
                     bins: Optional[int] = None,
+                    boundaries: Optional[List[int]] = None,
                     classes: Optional[List[str]] = None) -> pd.DataFrame:
     # create bin boundaries
     if bins is None:
@@ -71,15 +85,18 @@ def accuracy_vs_len(y_true: pd.Series,
     else:
         width = lens.max()//bins
 
-    boundaries = [i for i in range(lens.min(), lens.max()+width+1, width)]
+    if boundaries is None:
+        boundaries = [i for i in range(lens.min(), lens.max()+width+1, width)]
 
     # calc accuracy for each bin
     acc = [_bin_accuracy(y_true, y_pred, lens, boundaries[i], boundaries[i+1]) \
             for i in range(len(boundaries)-1)]
+    bin_counts = [_bin_count(lens, boundaries[i], boundaries[i+1]) \
+            for i in range(len(boundaries)-1)]
 
     index = [boundaries[i] for i in range(1, len(boundaries))]
 
-    return pd.DataFrame(data={"accuracy": acc},
+    return pd.DataFrame(data={"accuracy": acc, "count": bin_counts},
                         index=index)
 
 def accuracy_vs_pos(y_true: pd.Series,
