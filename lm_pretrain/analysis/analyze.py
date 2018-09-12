@@ -22,3 +22,4 @@ def analyze(datafiles: list, outfile: str):
 
     res_df = pd.concat(res_dfs, axis=1)
     print(res_df)
+    res_df.to_csv(outfile)
