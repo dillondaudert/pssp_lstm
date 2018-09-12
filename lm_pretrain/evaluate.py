@@ -4,6 +4,7 @@ from time import process_time
 from pathlib import Path
 import tensorflow as tf, numpy as np
 import pandas as pd
+import numpy as np
 from .model_helper import create_model
 
 def evaluate(hparams, files, outfile=None):
@@ -72,7 +73,7 @@ def evaluate(hparams, files, outfile=None):
         assert row.pssm.shape[1] == hparams.num_pssm_features
         assert row.logits.shape[1] == hparams.num_labels
         assert row.ss.shape[1] == hparams.num_labels
-        if not pd.isnull(row.h_0):
+        if not np.isscalar(row.h_0):
             assert row.h_0.shape[1] == 2*hparams.lm_hparams.num_units
             assert row.h_1.shape[1] == 2*hparams.lm_hparams.num_units
             assert row.h_2.shape[1] == 2*hparams.lm_hparams.num_units
