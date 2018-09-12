@@ -4,6 +4,7 @@ import argparse as ap
 from pathlib import Path
 from .pretrain import pretrain
 from .evaluate import evaluate
+from .analysis.analyze import analyze
 from .hparams import hparams
 from .hparam_helpers import hparams_to_str, HPARAM_CHOICES, HPARAM_DESCS
 
@@ -52,6 +53,11 @@ def main():
                            help="the name of the output pickle file where the results will be saved. optional")
 
     ev_parser.set_defaults(entry="evaluate")
+
+    an_parser = subparsers.add_parser("analyze", help="Analyze results")
+    an_parser.add_argument("datafile", type=str)
+    an_parser.add_argument("outfile", type=str)
+    an_parser.set_defaults(entry="analyze")
 
     args = parser.parse_args()
 
@@ -116,6 +122,8 @@ def main():
 
         evaluate(HPARAMS, args.files, outfile)
 
+    elif args.entry == "analyze":
+        analyze(args.datafile, args.outfile)
 
     else:
         print("Unrecognized command, exiting.")
