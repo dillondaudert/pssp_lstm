@@ -12,6 +12,8 @@ import random
 
 # CONTINUOUS ESTIMATORS
 
+
+
 def entropy(x, k=3, base=2):
     """ The classic K-L k-nearest neighbor continuous entropy estimator
         x should be a list of vectors, e.g. x = [[1.3], [3.7], [5.1], [2.4]]
@@ -25,7 +27,7 @@ def entropy(x, k=3, base=2):
     tree = ss.cKDTree(x)
     nn = [tree.query(point, k + 1, p=float('inf'))[0][k] for point in x]
     const = digamma(N) - digamma(k) + d * log(2)
-    return (const + d * np.mean(map(log, nn))) / log(base)
+    return (const + d * np.mean(list(map(log, nn)))) / log(base)
 
 def centropy(x, y, k=3, base=2):
   """ The classic K-L k-nearest neighbor continuous entropy estimator for the
@@ -272,6 +274,8 @@ def zip2(*args):
 
 def discretize(xs):
     def discretize_one(x):
+        if not isinstance(x, list):
+            return x
         if len(x) > 1:
             return tuple(x)
         else:
