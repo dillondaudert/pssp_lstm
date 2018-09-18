@@ -1,6 +1,7 @@
 from matplotlib import pyplot as plt
 import matplotlib
 import plotly.graph_objs as go
+import numpy as np
 
 def _plot_line_CI(ax,
                   x,
@@ -103,6 +104,44 @@ def line_CI_plot_2(ys,
         yaxis=dict(title="Cross Entropy", type="log", autorange=True),
         title="Validation Loss",
         showlegend=True)
+    fig = go.FigureWidget(data=data, layout=layout)
+    return fig
+
+def plot_confusion_matrix(title,
+                          cm_values,
+                          classes,
+                          normalize=True,
+                         ):
+    if normalize:
+        totals = cm_values.sum(axis=0)
+        cm_values = np.divide(cm_values, totals, out=np.zeros_like(cm_values), where=totals!=0.)
+        
+    trace = {
+        "x": classes,
+        "y": classes[::-1],
+        "z": cm_values[::-1, :],
+        "colorscale": "Jet",
+        "type": "heatmap"
+    }
+    data = go.Data([trace])
+    layout = {
+        "barmode": "overlay",
+        "title": title,
+        "xaxis": {
+            "title": "Predicted Label",
+            "titlefont": {
+                "family": "Courier New, monospace",
+                "size": 18
+            }
+        },
+        "yaxis": {
+            "title": "True Label",
+            "titlefont": {
+                "family": "Courier New, monospace",
+                "size": 18
+            }
+        }
+    }
     fig = go.FigureWidget(data=data, layout=layout)
     return fig
     

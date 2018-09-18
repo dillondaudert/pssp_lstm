@@ -1,4 +1,4 @@
-
+import numpy as np
 import pandas as pd
 from sklearn.metrics import log_loss
 from typing import List, Optional
@@ -108,6 +108,17 @@ def accuracy_vs_pos(y_true: pd.Series,
 
 def confusion_matrix(y_true: pd.Series,
                      y_pred: pd.Series,
-                     classes: Optional[List[str]] = None,
-                     normalized: bool = True) -> pd.DataFrame:
-    pass
+                     classes: Optional[List[str]] = None) -> pd.DataFrame:
+    if classes is not None:
+        num_classes = len(classes)
+        assert y_true.max()+1 <= num_classes
+        assert y_pred.max()+1 <= num_classes
+    else:
+        num_classes = max(y_true.max(), y_pred.max())+1
+    cm = np.zeros((num_classes, num_classes))
+    
+    for i in range(y_true.shape[0]):
+        cm[y_true.iloc[i], y_pred.iloc[i]] += 1.
+        
+    return pd.DataFrame(cm, index=classes, columns=classes)
+    
